@@ -24,7 +24,7 @@ from scheduler.state import StateStore
 from scheduler.ui.backlog import BacklogWindow
 from scheduler.ui.calendar_window import CalendarWindow
 from scheduler.ui.planner import GatePlanner
-from scheduler.ui.popup import SystemPopup
+from scheduler.ui.popup import EventReminderPopup, SystemPopup
 from scheduler.ui.tray import SchedulerTray
 from scheduler.watcher import TaskWatcher
 
@@ -85,6 +85,23 @@ def run(argv: list[str] | None = None) -> int:
 
     watcher = TaskWatcher(vault)
     watcher.fire.connect(on_fire)
+
+    # -- event reminders (separate popup + suppression namespace) ------------ #
+    def on_event_remind(payload: dict) -> None:
+        event = payload["event"]
+        reminder_key = f"ev:{event.event_hash()}"
+        if state.was_fired(reminder_key) or event.done:
+            return
+        state.mark_fired(reminder_key)
+        popup = EventReminderPopup(event, force_focus=state.force_focus)
+        popup.openPlanner.connect(lambda e=event: day_to_planner(e.start.date()))
+        popups.add(popup)
+        popup.destroyed.connect(lambda _obj, p=popup: popups.discard(p))
+        if state.sound:
+            play_cue()
+        popup.show_centered()
+
+    watcher.eventRemind.connect(on_event_remind)
 
     # -- planner (persistent single instance) ------------------------------- #
     planner = GatePlanner(vault)

@@ -33,6 +33,9 @@ Range events live in the **start day's** file as a dated range line:
   defaults to **day-before**. Same-day events don't need a range — they're plain tasks.
 - The tray menu's **▦ Calendar** opens a month view showing pending-task counts and
   event coverage; clicking a day jumps the scheduler panel to that day.
+- When a range event enters its advance window, a frameless `REMINDER` popup
+  appears in the system tray announcing the upcoming event (the `OPEN PLANNER`
+  button jumps to the event's day).
 
 ## Setup
 

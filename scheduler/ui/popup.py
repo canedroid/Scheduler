@@ -8,9 +8,18 @@ the task; every action rewrites the source markdown via the parser.
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 
-from PyQt6.QtCore import QPoint, QTimer, Qt, pyqtSignal
-from PyQt6.QtGui import QGuiApplication, QCursor, QCloseEvent
+from PyQt6.QtCore import QPoint, QRect, QTimer, Qt, pyqtSignal
+from PyQt6.QtGui import (
+    QBrush,
+    QCloseEvent,
+    QColor,
+    QCursor,
+    QGuiApplication,
+    QPainter,
+    QPen,
+)
 from PyQt6.QtWidgets import (
     QGraphicsDropShadowEffect,
     QHBoxLayout,
@@ -22,7 +31,7 @@ from PyQt6.QtWidgets import (
 )
 
 from scheduler import config
-from scheduler.models import Task
+from scheduler.models import Event, Task
 from scheduler.ui import theme
 
 log = logging.getLogger(__name__)
@@ -212,8 +221,20 @@ class SystemPopup(QWidget):
         for minutes in config.SNOOZE_OPTIONS_MIN:
             action = menu.addAction(f"Snooze +{minutes} min")
             action.triggered.connect(lambda _checked=False, m=minutes: self._snooze(m))
+        menu.addSeparator()
+        custom_action = menu.addAction("Custom…")
+        custom_action.triggered.connect(self._custom_snooze)
         pos = button.mapToGlobal(button.rect().bottomLeft()) if button else QCursor.pos()
         menu.exec(pos)
+
+    def _custom_snooze(self) -> None:
+        if self._closed:
+            return
+        from PyQt6.QtWidgets import QInputDialog
+
+        minutes, accepted = QInputDialog.getInt(self, "Custom snooze", "Minutes:", 10, 1, 180)
+        if accepted:
+            self._snooze(minutes)
 
     def _snooze(self, minutes: int) -> None:
         if self._closed:
@@ -235,3 +256,138 @@ class SystemPopup(QWidget):
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802 (Qt naming)
         log.debug("Popup closed for task %r", self._task.description)
         super().closeEvent(event)
+
+
+def event_eta_text(start: datetime, now: datetime | None = None) -> str:
+    """Human-positive advance notice, e.g. 'Starting tomorrow at 09:00'."""
+    now = now or datetime.now()
+    delta_days = (start.date() - now.date()).days
+    if delta_days <= 0:
+        return f"Starting today at {start:%H:%M}"
+    if delta_days == 1:
+        return f"Starting tomorrow at {start:%H:%M}"
+    return f"Starting {start:%A} at {start:%H:%M}"
+
+
+class EventReminderPopup(QWidget):
+    """Advance-notice popup for a multi-day event inside its lead window."""
+
+    dismissed = pyqtSignal()
+    openPlanner = pyqtSignal()  # jump the scheduler panel to the event's day
+
+    def __init__(self, event: Event, force_focus: bool = False, now: datetime | None = None):
+        super().__init__()
+        self._event = event
+        self._closed = False
+        now = now or datetime.now()
+        self._eta = event_eta_text(event.start, now)
+
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setFixedSize(DIALOG_WIDTH, DIALOG_HEIGHT)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(18, 14, 18, 14)
+        layout.setSpacing(8)
+
+        header = QHBoxLayout()
+        badge = QLabel("◈  REMINDER", self)
+        badge.setStyleSheet(
+            f"color: {config.PURPLE_GLOW}; background: transparent;"
+            f" font-size: 11px; font-weight: bold; letter-spacing: 1px;"
+        )
+        title = QLabel("SCHEDULER", self)
+        title.setStyleSheet(f"color: {config.TEXT_DIM}; background: transparent; font-size: 10px;")
+        header.addWidget(badge)
+        header.addStretch(1)
+        header.addWidget(title)
+        layout.addLayout(header)
+
+        desc = QLabel(event.title, self)
+        desc.setWordWrap(True)
+        desc.setFont(theme.body_font(14, bold=True))
+        desc.setStyleSheet(f"color: {config.TEXT}; background: transparent;")
+        layout.addWidget(desc, stretch=1)
+
+        note = QLabel(self._event_note(), self)
+        note.setWordWrap(True)
+        note.setFont(theme.body_font(10))
+        note.setStyleSheet(f"color: {config.TEXT_DIM}; background: transparent;")
+        layout.addWidget(note)
+
+        buttons = QHBoxLayout()
+        buttons.addStretch(1)
+        planner_btn = QPushButton("▣  OPEN PLANNER", self)
+        planner_btn.setStyleSheet(
+            f"QPushButton {{ color: {config.BG_GLASS_STRONG}; background: {config.PURPLE_GLOW};"
+            f" border: 1px solid {config.PURPLE_GLOW}; border-radius: 6px; padding: 6px 14px; font-weight: bold; }}"
+            f"QPushButton:hover {{ background: {config.PURPLE}; }}"
+        )
+        planner_btn.clicked.connect(self._open_planner)
+        ok_btn = QPushButton("OK", self)
+        ok_btn.setStyleSheet(
+            f"QPushButton {{ color: {config.TEXT}; background: transparent; border: 1px solid rgba(230, 230, 230, 120);"
+            f" border-radius: 6px; padding: 6px 16px; }}"
+            f"QPushButton:hover {{ background: rgba(230, 230, 230, 30); }}"
+        )
+        ok_btn.clicked.connect(self.dismiss)
+        buttons.addWidget(planner_btn)
+        buttons.addWidget(ok_btn)
+        layout.addLayout(buttons)
+
+        self._auto_hide = QTimer(self)
+        self._auto_hide.setSingleShot(True)
+        self._auto_hide.setInterval(config.POPUP_DURATION_MS)
+        self._auto_hide.timeout.connect(self.dismiss)
+
+        if force_focus:
+            self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, True)
+            self._auto_hide.stop()
+
+    def _event_note(self) -> str:
+        if self._event.end.date() > self._event.start.date():
+            return f"{self._eta} · until {self._event.end:%A, %d %b %H:%M}"
+        return self._eta
+
+    def show_centered(self) -> None:
+        self._auto_hide.start()
+        center = (
+            QApplication.primaryScreen().availableGeometry().center()
+            if QApplication.primaryScreen()
+            else QRect(0, 0, 400, 300).center()
+        )
+        self.move(center.x() - self.width() // 2, center.y() - self.height() // 2)
+        self.show()
+        self.raise_()
+
+    def dismiss(self) -> None:
+        if self._closed:
+            return
+        self._closed = True
+        self._auto_hide.stop()
+        self.dismissed.emit()
+        self._safe_close()
+
+    def _open_planner(self) -> None:
+        self._closed = True
+        self._auto_hide.stop()
+        self.openPlanner.emit()
+        self._safe_close()
+
+    def _safe_close(self) -> None:
+        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
+        self.close()
+
+    # -- click-anywhere-to-dismiss ------------------------------------------- #
+    def mousePressEvent(self, event) -> None:  # noqa: N802 (Qt naming)
+        self.dismiss()
+        super().mousePressEvent(event)
+
+    def paintEvent(self, event) -> None:  # noqa: N802 (Qt naming)
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setBrush(QBrush(QColor(config.BG_GLASS_STRONG)))
+        painter.setPen(QPen(QColor(config.PURPLE), 1))
+        painter.setOpacity(config.WINDOW_OPACITY)
+        painter.drawRoundedRect(QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5), 14, 14)
+        painter.end()

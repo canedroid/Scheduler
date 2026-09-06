@@ -3,10 +3,13 @@ from datetime import date, time
 import pytest
 
 from scheduler.markdown_parser import (
+    add_task,
     complete_task,
+    delete_task,
     parse_tasks_from_file,
     read_all_tasks,
     read_tasks,
+    reschedule_task,
     snooze_task,
 )
 from scheduler.models import Task
@@ -154,3 +157,54 @@ def test_task_hash_stable():
     assert task.task_hash() == task.task_hash()
     other = Task(date(2026, 9, 6), time(14, 0), "Task description", False, None, "", 0)
     assert task.task_hash() == other.task_hash()
+
+
+def test_add_task_creates_new_file(vault):
+    assert add_task(vault, date(2026, 10, 1), time(9, 0), "First gate")
+    path = vault / "2026-10-01.md"
+    assert path.exists()
+    content = path.read_text(encoding="utf-8")
+    assert content.startswith("# 2026-10-01\n")
+    assert "- [ ] 09:00 | First gate\n" in content
+
+
+def test_add_task_appends_to_existing(vault):
+    _write(vault, "2026-09-06.md", SAMPLE)
+    assert add_task(vault, date(2026, 9, 6), time(21, 5), "Night gate")
+    content = (vault / "2026-09-06.md").read_text(encoding="utf-8")
+    assert content.rstrip("\n").endswith("- [ ] 21:05 | Night gate")
+    assert "- [ ] 14:00 | Task description" in content  # untouched
+
+
+def test_add_task_rejects_invalid(vault):
+    assert add_task(vault, date(2026, 9, 6), time(9, 0), "   ") is False
+    assert not (vault / "2026-09-06.md").exists()
+
+
+def test_delete_task_removes_exact_line(vault):
+    path = _write(vault, "2026-09-06.md", "- [ ] 14:00 | Task description\n- [x] 09:00 | Already done\n")
+    tasks = read_tasks(vault, date(2026, 9, 6))
+    victim = next(t for t in tasks if t.description == "Task description")
+    assert delete_task(vault, victim) is True
+    content = path.read_text(encoding="utf-8")
+    assert "Task description" not in content
+    assert "- [x] 09:00 | Already done\n" in content
+
+
+def test_delete_aborts_on_user_edit(vault):
+    path = _write(vault, "2026-09-06.md", "- [ ] 14:00 | Original\n")
+    (task,) = read_tasks(vault, date(2026, 9, 6))
+    path.write_text("- [ ] 14:00 | User edited it\n", encoding="utf-8")
+    assert delete_task(vault, task) is False
+    assert "- [ ] 14:00 | User edited it\n" in path.read_text(encoding="utf-8")
+
+
+def test_reschedule_task_explicit_time(vault):
+    path = _write(vault, "2026-09-06.md", "- [ ] 14:00 | Task description\n- [ ] 10:00 | Neighbor\n")
+    tasks = read_tasks(vault, date(2026, 9, 6))
+    target = next(t for t in tasks if t.description == "Task description")
+    assert reschedule_task(vault, target, time(18, 30)) is True
+    content = path.read_text(encoding="utf-8")
+    assert "- [ ] 18:30 | Task description\n" in content
+    assert "- [ ] 10:00 | Neighbor\n" in content
+    assert target.time == time(18, 30)

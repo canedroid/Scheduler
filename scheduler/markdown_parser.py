@@ -153,3 +153,56 @@ def snooze_task(vault: Path, task: Task, minutes: int) -> bool:
     if replaced:
         task.time = new_dt.time()
     return replaced
+
+
+def reschedule_task(vault: Path, task: Task, new_time: time) -> bool:
+    """Set a task to an explicit new HH:MM (used by the planner's time picker)."""
+    del vault
+    match = config.CHECKBOX_SNOOZE_RE.match(task.source_line)
+    if not match:
+        return False
+    if new_time.hour > 23 or new_time.minute > 59:
+        return False
+    new_line = f"{match.group(1)} {new_time:%H:%M}{match.group(5)}"
+    replaced = _replace_anchored_line(task.source_file, task.source_line, new_line)
+    if replaced:
+        task.time = new_time
+    return replaced
+
+
+# --------------------------------------------------------------------------- #
+# Adding / removing tasks                                                      #
+# --------------------------------------------------------------------------- #
+def _task_line(time_value: time, description: str) -> str:
+    return f"- [ ] {time_value:%H:%M} | {description}"
+
+
+def add_task(vault: Path, day, task_time: time, description: str) -> bool:
+    """Append `- [ ] HH:MM | description` to the day's file (created if missing)."""
+    description = description.strip()
+    if not description or task_time.hour > 23 or task_time.minute > 59:
+        return False
+    path = vault / config.task_filename(day)
+    if path.exists():
+        lines = _read_lines_with_endings(path)
+        if lines is None:
+            return False
+    else:
+        lines = [f"# {day:{config.DATE_FILE_FORMAT}}\n"]
+    lines.append(_task_line(task_time, description) + "\n")
+    return _write_lines(path, lines)
+
+
+def delete_task(vault: Path, task: Task) -> bool:
+    """Remove only the exact anchored source line (aborts if the line changed)."""
+    del vault
+    lines = _read_lines_with_endings(task.source_file)
+    if lines is None:
+        return False
+    anchor = task.source_line.rstrip("\r\n")
+    for index, raw_line in enumerate(lines):
+        if raw_line.rstrip("\r\n") == anchor:
+            del lines[index]
+            return _write_lines(task.source_file, lines)
+    log.info("Delete anchor not found in %s; aborting to preserve user edits.", task.source_file)
+    return False

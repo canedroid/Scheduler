@@ -21,6 +21,19 @@ One file per calendar day, named `YYYY-MM-DD.md`. Each line is one task:
 - Subfolders are scanned, but only `<date>.md` files count as schedules.
 - Point this at an existing Obsidian vault by editing `scheduler/config.py` → `VAULT_DIR`.
 
+### Multi-day events (month calendar)
+
+Range events live in the **start day's** file as a dated range line:
+
+```markdown
+- [ ] 2026-09-07 09:00 → 2026-09-09 18:00 | Exams (⏰ 1d)
+```
+
+- The `(⏰ …)` suffix sets an advance-notice lead (`m`/`h`/`d`); without it the lead
+  defaults to **day-before**. Same-day events don't need a range — they're plain tasks.
+- The tray menu's **▦ Calendar** opens a month view showing pending-task counts and
+  event coverage; clicking a day jumps the scheduler panel to that day.
+
 ## Setup
 
 ```powershell

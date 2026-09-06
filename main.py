@@ -22,6 +22,7 @@ from scheduler.init_check import aggregate_missed
 from scheduler.markdown_parser import complete_task, snooze_task
 from scheduler.state import StateStore
 from scheduler.ui.backlog import BacklogWindow
+from scheduler.ui.calendar_window import CalendarWindow
 from scheduler.ui.planner import GatePlanner
 from scheduler.ui.popup import SystemPopup
 from scheduler.ui.tray import SchedulerTray
@@ -92,6 +93,20 @@ def run(argv: list[str] | None = None) -> int:
     def open_planner() -> None:
         planner.show_centered()
 
+    # -- event calendar (on-demand month view) ----------------------------- #
+    calendar = CalendarWindow(vault)
+    planner.tasks_changed.connect(calendar.refresh)
+
+    def open_calendar() -> None:
+        calendar.refresh()
+        calendar.show_centered()
+
+    def day_to_planner(day) -> None:
+        planner.select_day(day)
+        planner.show_centered()
+
+    calendar.dayActivated.connect(day_to_planner)
+
     # -- backlog review ------------------------------------------------------ #
     def open_backlog(initial: bool = False) -> None:
         missed = aggregate_missed(vault)
@@ -109,7 +124,7 @@ def run(argv: list[str] | None = None) -> int:
         app.quit()
 
     # -- tray + boot ---------------------------------------------------------- #
-    tray = SchedulerTray(open_planner, lambda: open_backlog(initial=False), on_quit)
+    tray = SchedulerTray(open_planner, open_calendar, lambda: open_backlog(initial=False), on_quit)
     open_backlog(initial=True)
     watcher.start()
 

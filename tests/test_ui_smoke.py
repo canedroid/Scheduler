@@ -113,3 +113,23 @@ def test_backlog_reset_hold_fires_on_timeout():
     backlog._reset_timer.timeout.emit()  # simulate the hold completing
     assert reset_fired == [True]
     assert backlog._reset_btn.text().startswith("RESET")
+
+
+def test_calendar_window_builds_and_emits_day(tmp_path):
+    app = _app()
+    from PyQt6.QtWidgets import QPushButton
+
+    from scheduler.ui.calendar_window import CalendarWindow
+
+    calendar = CalendarWindow(tmp_path)
+    calendar.show()
+    captured = []
+    calendar.dayActivated.connect(captured.append)
+    day_cells = [b for b in calendar.findChildren(QPushButton) if "\n" in b.text()]
+    assert day_cells, "expected clickable day cells"
+    day_cells[0].click()
+    assert len(captured) == 1
+    assert captured[0].day >= 1
+    calendar._shift_month(1)
+    calendar._jump_today()
+    calendar.close()

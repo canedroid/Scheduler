@@ -20,6 +20,13 @@ POPUP_DURATION_MS = 20_000
 SNOOZE_OPTIONS_MIN = (5, 15, 30)
 
 # --------------------------------------------------------------------------- #
+# Event reminders (multi-day range events only)                                #
+# --------------------------------------------------------------------------- #
+EVENT_REMIND_DEFAULT_MIN = 1440   # day-before notice unless a (⏰ …) token overrides
+EVENT_REMIND_OPTIONS_MIN = (10, 30, 60)
+EVENT_MAX_LEAD_DAYS = 7
+
+# --------------------------------------------------------------------------- #
 # Markdown contract (see SYSTEM_SPEC addendum sections 1 & 3)                  #
 # --------------------------------------------------------------------------- #
 RAW_TASK_PATTERN = r"^\s*-\s\[([ xX])\]\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(\|\s*)?(.*)$"
@@ -27,6 +34,15 @@ TASK_LINE_RE = re.compile(RAW_TASK_PATTERN)
 
 CHECKBOX_COMPLETE_RE = re.compile(r"(\s*-\s)\[ \]")
 CHECKBOX_SNOOZE_RE = re.compile(r"^(\s*-\s\[ \])\s+(\d{1,2}):(\d{2})(?::(\d{2}))?(.*)$")
+
+# Multi-day range event: `- [ ] 2026-09-07 09:00 → 2026-09-09 18:00 | Offsite (⏰ 10m)`
+EVENT_LINE_RE = re.compile(
+    r"^\s*-\s\[([ xX])\]\s+(\d{4}-\d{2}-\d{2})\s+(\d{1,2}):(\d{2})\s*[→>]\s*"
+    r"(\d{4}-\d{2}-\d{2})\s+(\d{1,2}):(\d{2})\s*(\|\s*)?(.*)$"
+)
+
+# Optional trailing advance-notice token on a task/event line, e.g. `(⏰ 10m)`, `(⏰ 1h)`, `(⏰ 1d)`
+REMIND_TOKEN_RE = re.compile(r"\s*\(\s*⏰\s*(\d+)\s*([mhd])\s*\)\s*$", re.IGNORECASE)
 
 DATE_FILE_FORMAT = "%Y-%m-%d"
 

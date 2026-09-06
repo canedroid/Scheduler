@@ -14,6 +14,7 @@ from pathlib import Path
 from PyQt6.QtCore import QDate, QTimer, Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QLinearGradient, QPainter, QPen
 from PyQt6.QtWidgets import (
+    QComboBox,
     QDateEdit,
     QHBoxLayout,
     QLabel,
@@ -26,14 +27,24 @@ from PyQt6.QtWidgets import (
 )
 
 from scheduler import config
-from scheduler.markdown_parser import add_task, complete_task, delete_task, read_tasks, reschedule_task
-from scheduler.models import Task
+from scheduler.markdown_parser import (
+    add_event,
+    add_task,
+    complete_event,
+    complete_task,
+    delete_event,
+    delete_task,
+    read_events,
+    read_tasks,
+    reschedule_task,
+)
+from scheduler.models import Event, Task
 from scheduler.ui import theme
 
 log = logging.getLogger(__name__)
 
 PLANNER_WIDTH = 520
-PLANNER_HEIGHT = 640
+PLANNER_HEIGHT = 780
 STATUS_MS = 2600
 
 
@@ -122,6 +133,61 @@ class GatePlanner(QWidget):
         form.addWidget(add_btn)
         root.addLayout(form)
 
+        # event form -----------------------------------------------------------
+        event_row = QHBoxLayout()
+        event_label = QLabel("EVENT", self)
+        event_label.setFont(theme.body_font(10, bold=True))
+        event_label.setStyleSheet(f"color: {config.TEXT_DIM}; background: transparent;")
+
+        self._ev_start_date = QDateEdit(QDate.currentDate(), self)
+        self._ev_start_date.setDisplayFormat("yyyy-MM-dd")
+        self._ev_start_date.setStyleSheet(_input_qss())
+
+        self._ev_start_time = QTimeEdit(time(9, 0), self)
+        self._ev_start_time.setDisplayFormat("HH:mm")
+        self._ev_start_time.setStyleSheet(_input_qss())
+
+        event_arrow = QLabel("→", self)
+        event_arrow.setStyleSheet(f"color: {config.TEXT_DIM}; background: transparent; font-size: 14px;")
+
+        self._ev_end_date = QDateEdit(QDate.currentDate(), self)
+        self._ev_end_date.setDisplayFormat("yyyy-MM-dd")
+        self._ev_end_date.setStyleSheet(_input_qss())
+
+        self._ev_end_time = QTimeEdit(time(10, 0), self)
+        self._ev_end_time.setDisplayFormat("HH:mm")
+        self._ev_end_time.setStyleSheet(_input_qss())
+
+        self._ev_remind = QComboBox(self)
+        self._ev_remind.addItem("remind: default", None)
+        self._ev_remind.addItem("10 min before", 10)
+        self._ev_remind.addItem("30 min before", 30)
+        self._ev_remind.addItem("1 hour before", 60)
+        self._ev_remind.setStyleSheet(_input_qss())
+
+        event_row.addWidget(event_label)
+        event_row.addWidget(self._ev_start_date)
+        event_row.addWidget(self._ev_start_time)
+        event_row.addWidget(event_arrow)
+        event_row.addWidget(self._ev_end_date)
+        event_row.addWidget(self._ev_end_time)
+        event_row.addWidget(self._ev_remind)
+        root.addLayout(event_row)
+
+        event_title_row = QHBoxLayout()
+        self._ev_title = QLineEdit(self)
+        self._ev_title.setPlaceholderText("Event title — multi-day events live in the start day's file")
+        self._ev_title.setStyleSheet(_input_qss())
+        self._ev_title.returnPressed.connect(self._add_event)
+
+        add_ev_btn = QPushButton("ADD EVENT", self)
+        add_ev_btn.setStyleSheet(theme.button_qss(config.PURPLE_GLOW, "rgba(200, 200, 200, 40)", padding="8px 14px"))
+        add_ev_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        add_ev_btn.clicked.connect(self._add_event)
+        event_title_row.addWidget(self._ev_title, stretch=1)
+        event_title_row.addWidget(add_ev_btn)
+        root.addLayout(event_title_row)
+
         # warning / status -----------------------------------------------------
         self._status_label = QLabel(self)
         self._status_label.setFont(theme.body_font(10))
@@ -178,6 +244,10 @@ class GatePlanner(QWidget):
     def _current_day(self) -> date:
         return self._date_edit.date().toPyDate()
 
+    def select_day(self, day: date) -> None:
+        """Point the planner at `day` (used by the calendar double-click)."""
+        self._date_edit.setDate(QDate(day.year, day.month, day.day))
+
     def _add_task(self) -> None:
         description = self._desc_edit.text().strip()
         if not description:
@@ -192,6 +262,23 @@ class GatePlanner(QWidget):
             self.tasks_changed.emit()
         else:
             self._set_status("Could not write the task file. Check permissions.", is_error=True)
+
+    def _add_event(self) -> None:
+        title = self._ev_title.text().strip()
+        if not title:
+            self._set_status("An event needs a title.", is_error=True)
+            return
+        start_dt = datetime.combine(self._ev_start_date.date().toPyDate(), self._ev_start_time.time().toPyTime())
+        end_dt = datetime.combine(self._ev_end_date.date().toPyDate(), self._ev_end_time.time().toPyTime())
+        remind_min = self._ev_remind.currentData()
+        if add_event(self._vault, start_dt, end_dt, title, remind_min):
+            self._ev_title.clear()
+            self._ev_title.setFocus()
+            self._set_status(f"EVENT ADDED  {start_dt:%m-%d %H:%M} → {end_dt:%m-%d %H:%M}  |  {title}", is_error=False)
+            self._refresh()
+            self.tasks_changed.emit()
+        else:
+            self._set_status("Invalid event range — end must be after start.", is_error=True)
 
     def _apply_reschedule(self, task: Task, edit: QTimeEdit) -> None:
         new_time = edit.time().toPyTime()
@@ -216,14 +303,27 @@ class GatePlanner(QWidget):
             self._refresh()
             self.tasks_changed.emit()
 
+    def _event_done(self, event: Event) -> None:
+        if complete_event(self._vault, event):
+            self._set_status(f"EVENT COMPLETED  |  {event.title}", is_error=False)
+            self._refresh()
+            self.tasks_changed.emit()
+
+    def _event_delete(self, event: Event) -> None:
+        if delete_event(self._vault, event):
+            self._set_status(f"EVENT DELETED  |  {event.title}", is_error=False)
+            self._refresh()
+            self.tasks_changed.emit()
+
     def _refresh(self) -> None:
         day = self._current_day()
         all_tasks = read_tasks(self._vault, day)
         self._tasks = [t for t in all_tasks if not t.done]
         done_count = len(all_tasks) - len(self._tasks)
+        day_events = read_events(self._vault, day)
         self._clear_rows()
         self._section_label.setText(f"TASKS · {config.task_filename(day)}  ({len(self._tasks)})")
-        if not self._tasks:
+        if not self._tasks and not day_events:
             if done_count:
                 msg = f"All {done_count} task{'s' if done_count != 1 else ''} completed for this day."
             else:
@@ -234,6 +334,13 @@ class GatePlanner(QWidget):
             return
         for task in self._tasks:
             self._rows_layout.addWidget(self._make_row(task))
+        if day_events:
+            event_header = QLabel(f"EVENTS · {len(day_events)} · stored in {config.task_filename(day)}", self._rows_host)
+            event_header.setFont(theme.body_font(10, bold=True))
+            event_header.setStyleSheet(f"color: {config.TEXT_DIM}; background: transparent; padding-top: 8px;")
+            self._rows_layout.addWidget(event_header)
+            for event in day_events:
+                self._rows_layout.addWidget(self._make_event_row(event))
         self._rows_layout.addStretch(1)
 
     def _clear_rows(self) -> None:
@@ -288,6 +395,62 @@ class GatePlanner(QWidget):
         layout.addWidget(done_btn)
         layout.addWidget(del_btn)
         return row
+
+    def _make_event_row(self, event: Event) -> QWidget:
+        row = QWidget(self._rows_host)
+        row.setStyleSheet("background: rgba(220, 220, 220, 12); border-radius: 8px;")
+        layout = QHBoxLayout(row)
+        layout.setContentsMargins(10, 8, 10, 8)
+        layout.setSpacing(8)
+
+        glyph = QLabel("◈", row)
+        glyph.setStyleSheet(f"color: {config.PURPLE_GLOW}; background: transparent; font-size: 12px;")
+
+        title = QLabel(event.title, row)
+        title.setWordWrap(True)
+        title.setFont(theme.body_font(12))
+        title.setStyleSheet("color: %s; background: transparent;" % config.TEXT)
+
+        span = QLabel(self._event_span_text(event), row)
+        span.setFont(theme.body_font(9))
+        span.setStyleSheet(f"color: {config.TEXT_DIM}; background: transparent;")
+
+        done_btn = QPushButton("✓", row)
+        done_btn.setToolTip("Mark event complete")
+        done_btn.setStyleSheet(
+            f"QPushButton {{ color: {config.SUCCESS}; background: transparent; border: 1px solid {config.SUCCESS};"
+            f" border-radius: 6px; padding: 4px 8px; }}"
+            f"QPushButton:hover {{ background: rgba(200, 200, 200, 25); }}"
+        )
+        done_btn.clicked.connect(lambda e=event: self._event_done(e))
+
+        del_btn = QPushButton("✕", row)
+        del_btn.setToolTip("Delete event")
+        del_btn.setStyleSheet(
+            f"QPushButton {{ color: {config.DANGER}; background: transparent; border: 1px solid rgba(230, 230, 230, 120);"
+            f" border-radius: 6px; padding: 4px 8px; }}"
+            f"QPushButton:hover {{ background: rgba(230, 230, 230, 30); }}"
+        )
+        del_btn.clicked.connect(lambda e=event: self._event_delete(e))
+
+        layout.addWidget(glyph)
+        layout.addWidget(title, stretch=1)
+        layout.addWidget(span)
+        layout.addWidget(done_btn)
+        layout.addWidget(del_btn)
+        return row
+
+    @staticmethod
+    def _event_span_text(event: Event) -> str:
+        text = f"{event.start:%m-%d %H:%M} → {event.end:%m-%d %H:%M}"
+        minutes = event.remind_min
+        if minutes is None or minutes == config.EVENT_REMIND_DEFAULT_MIN:
+            return text
+        if minutes and minutes % 1440 == 0:
+            return f"{text}  [⏰ {minutes // 1440}d]"
+        if minutes and minutes % 60 == 0:
+            return f"{text}  [⏰ {minutes // 60}h]"
+        return f"{text}  [⏰ {minutes}m]"
 
     # ------------------------------------------------------------------ status #
     def _set_status(self, message: str, is_error: bool = False) -> None:

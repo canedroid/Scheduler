@@ -120,6 +120,53 @@ def test_tray_icon_draws():
     assert icon.isNull() is False
 
 
+def test_planner_add_event_writes_range_line(today_vault):
+    from scheduler.ui.planner import GatePlanner
+
+    app = _app()
+    planner = GatePlanner(today_vault)
+    planner._ev_start_date.setDate(QDate(2026, 10, 5))
+    planner._ev_end_date.setDate(QDate(2026, 10, 6))
+    planner._ev_end_time.setTime(QTime(9, 0))
+    planner._ev_title.setText("Concert")
+    planner._add_event()
+    content = (today_vault / "2026-10-05.md").read_text(encoding="utf-8")
+    assert "- [ ] 2026-10-05 09:00 → 2026-10-06 09:00 | Concert\n" in content
+    assert "EVENT ADDED" in planner._status_label.text()
+    assert planner._rows_layout.count() > 0
+    planner.close()
+
+
+def test_planner_event_with_remind_token_round_trips(today_vault):
+    from scheduler.ui.planner import GatePlanner
+
+    app = _app()
+    planner = GatePlanner(today_vault)
+    planner._ev_start_date.setDate(QDate(2026, 10, 8))
+    planner._ev_start_time.setTime(QTime(14, 0))
+    planner._ev_end_date.setDate(QDate(2026, 10, 8))
+    planner._ev_end_time.setTime(QTime(16, 0))
+    planner._ev_remind.setCurrentIndex(1)  # 10 min before
+    planner._ev_title.setText("Quick pickup")
+    planner._add_event()
+    content = (today_vault / "2026-10-08.md").read_text(encoding="utf-8")
+    assert "- [ ] 2026-10-08 14:00 → 2026-10-08 16:00 | Quick pickup (⏰ 10m)\n" in content
+    planner.close()
+
+
+def test_planner_rejects_bad_event_range(today_vault):
+    from scheduler.ui.planner import GatePlanner
+
+    app = _app()
+    planner = GatePlanner(today_vault)
+    planner._ev_start_date.setDate(QDate(2026, 10, 10))
+    planner._ev_end_date.setDate(QDate(2026, 10, 9))
+    planner._ev_title.setText("Time travel")
+    planner._add_event()
+    assert "end must be after start" in planner._status_label.text().lower()
+    planner.close()
+
+
 def test_tray_constructs_and_quits():
     from scheduler.ui.tray import SchedulerTray
 
@@ -127,6 +174,7 @@ def test_tray_constructs_and_quits():
     calls = []
     tray = SchedulerTray(
         on_planner=lambda: calls.append("planner"),
+        on_calendar=lambda: calls.append("calendar"),
         on_backlog=lambda: calls.append("backlog"),
         on_quit=lambda: calls.append("quit"),
     )

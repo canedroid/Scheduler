@@ -177,7 +177,50 @@ def test_settings_window_slider_drives_app_opacity():
         settings.saved.connect(lambda v: saved.append(v))
         settings.dismiss()
         assert saved == [0.2]
-        settings.close()
+        calendar.close()
+    finally:
+        theme.set_opacity(0.75)
+
+
+def test_settings_reopen_after_dismiss_does_not_crash(tmp_path):
+    """Regression: dismissing settings destroyed it, leaving a dead C++ object behind."""
+    app = _app()
+    from scheduler.ui import theme
+    from scheduler.ui.calendar_window import CalendarWindow
+
+    try:
+        theme.set_opacity(0.75)
+        calendar = CalendarWindow(tmp_path)
+        calendar.show()
+        for _ in range(2):
+            calendar._open_settings()
+            assert calendar._settings is not None
+            assert calendar._settings.isVisible()
+            calendar._settings.dismiss()
+            app.processEvents()  # let Qt process any pending deletion events
+            assert not calendar._settings.isVisible()
+        assert theme.current_opacity() == 0.75
+        calendar.close()
+    finally:
+        theme.set_opacity(0.75)
+
+
+def test_settings_slider_writes_through_to_persistence_sink():
+    app = _app()
+    from scheduler.ui import theme
+    from scheduler.ui.calendar_window import CalendarWindow
+
+    try:
+        theme.set_opacity(0.75)
+        calendar = CalendarWindow(".")
+        persisted = []
+        calendar.set_opacity_sink(lambda v: persisted.append(v))
+        calendar._open_settings()
+        # change the slider after construction: fires `changed`, not just `saved`
+        calendar._settings._slider.setValue(80)
+        calendar._settings._slider.setValue(90)
+        assert persisted[-1] == 0.9
+        assert persisted == [0.8, 0.9]
         calendar.close()
     finally:
         theme.set_opacity(0.75)

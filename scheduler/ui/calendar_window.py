@@ -189,20 +189,36 @@ class CalendarWindow(QWidget):
         self.refresh()
 
     def _open_settings(self) -> None:
-        if self._settings is None:
-            from scheduler.ui.settings_window import SettingsWindow
+        if self._settings is not None:
+            try:
+                self._settings.show_centered()
+                return
+            except RuntimeError:
+                self._settings = None
+        from scheduler.ui.settings_window import SettingsWindow
 
-            self._settings = SettingsWindow()
-            self._settings.saved.connect(self._settings_saved)
+        self._settings = SettingsWindow()
+        self._settings.saved.connect(self._settings_saved)
+        self._settings.changed.connect(self._settings_changed)
+        self._settings.destroyed.connect(self._on_settings_destroyed)
         self._settings.show_centered()
 
+    def _settings_changed(self, opacity: float) -> None:
+        self._settings_changed_callback(opacity)
+
     def _settings_saved(self, opacity: float) -> None:
-        on_saved = getattr(self, "_opacity_saved", None)
-        if on_saved is not None:
-            on_saved(opacity)
+        self._settings_changed_callback(opacity)
+
+    def _settings_changed_callback(self, opacity: float) -> None:
+        on_changed = getattr(self, "_opacity_saved", None)
+        if on_changed is not None:
+            on_changed(opacity)
+
+    def _on_settings_destroyed(self) -> None:
+        self._settings = None
 
     def set_opacity_sink(self, callback) -> None:
-        """Wire the settings dialog's 'saved' value to a persistent store."""
+        """Wire the settings dialog's 'saved' and 'changed' value to a persistent store."""
         self._opacity_saved = callback
 
     def _hide_self(self) -> None:

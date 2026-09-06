@@ -30,9 +30,10 @@ SETTINGS_HEIGHT = 170
 
 
 class SettingsWindow(QWidget):
-    """Live opacity control; `saved` fires with the final opacity on its way out."""
+    """Live opacity control; hides on dismiss so it can be reopened."""
 
-    saved = pyqtSignal(float)
+    changed = pyqtSignal(float)   # emitted on every slider move (write-through)
+    saved = pyqtSignal(float)     # emitted on dismiss (final persist)
 
     def __init__(self, vault: Path | None = None, parent=None):
         del vault
@@ -117,6 +118,7 @@ class SettingsWindow(QWidget):
         opacity = value / 100.0
         theme.set_opacity(opacity)
         self._update_label()
+        self.changed.emit(opacity)
 
     def _update_label(self) -> None:
         percent = round(theme.current_opacity() * 100)
@@ -124,8 +126,7 @@ class SettingsWindow(QWidget):
 
     def dismiss(self) -> None:
         self.saved.emit(theme.current_opacity())
-        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
-        self.close()
+        self.hide()
 
     def show_centered(self) -> None:
         primary = QGuiApplication.primaryScreen()
@@ -151,3 +152,7 @@ class SettingsWindow(QWidget):
         painter.setPen(QPen(QColor(config.PURPLE_GLOW), 1))
         painter.drawRoundedRect(rect, 14, 14)
         painter.end()
+
+    def closeEvent(self, event) -> None:  # noqa: N802 (Qt naming) — hide, never destroy
+        event.ignore()
+        self.dismiss()

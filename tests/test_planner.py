@@ -84,6 +84,34 @@ def test_planner_delete_existing_task(today_vault):
     planner.close()
 
 
+def test_planner_hides_done_tasks(today_vault):
+    from scheduler.ui.planner import GatePlanner
+
+    app = _app()
+    _write(
+        today_vault,
+        "2026-09-06.md",
+        "- [ ] 08:00 | Still pending\n- [x] 09:00 | Already done\n- [X] 10:00 | Also done\n",
+    )
+    planner = GatePlanner(today_vault)
+    planner._date_edit.setDate(QDate(2026, 9, 6))
+    descs = [t.description for t in planner._tasks]
+    assert descs == ["Still pending"]
+
+
+def test_planner_cleared_message_when_all_done(today_vault):
+    from scheduler.ui.planner import GatePlanner
+
+    app = _app()
+    _write(today_vault, "2026-09-06.md", "- [x] 08:00 | Done one\n- [x] 09:00 | Done two\n")
+    planner = GatePlanner(today_vault)
+    planner._date_edit.setDate(QDate(2026, 9, 6))
+    assert planner._tasks == []
+    assert planner._section_label.text().endswith("(0)")
+    assert "cleared" in planner._rows_layout.itemAt(0).widget().text().lower()
+    planner.close()
+
+
 def test_tray_icon_draws():
     from scheduler.ui.tray import make_icon
 

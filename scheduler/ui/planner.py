@@ -217,11 +217,17 @@ class GatePlanner(QWidget):
 
     def _refresh(self) -> None:
         day = self._current_day()
-        self._tasks = read_tasks(self._vault, day)
+        all_tasks = read_tasks(self._vault, day)
+        self._tasks = [t for t in all_tasks if not t.done]
+        done_count = len(all_tasks) - len(self._tasks)
         self._clear_rows()
         self._section_label.setText(f"TASKS · {config.task_filename(day)}  ({len(self._tasks)})")
         if not self._tasks:
-            empty = QLabel("No gates for this day yet — add one above.", self._rows_host)
+            if done_count:
+                msg = f"All {done_count} gate{'s' if done_count != 1 else ''} cleared for this day."
+            else:
+                msg = "No gates for this day yet — add one above."
+            empty = QLabel(msg, self._rows_host)
             empty.setStyleSheet(f"color: {config.TEXT_DIM}; background: transparent; padding: 12px;")
             self._rows_layout.addWidget(empty)
             return

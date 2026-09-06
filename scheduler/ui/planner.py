@@ -305,9 +305,13 @@ class GatePlanner(QWidget):
 
     def keyPressEvent(self, event) -> None:  # noqa: N802 (Qt naming)
         if event.key() == Qt.Key.Key_Escape:
-            self.close()
+            self.hide()
         else:
             super().keyPressEvent(event)
+
+    def closeEvent(self, event) -> None:  # noqa: N802 (Qt naming) — hide, never destroy
+        event.ignore()
+        self.hide()
 
 
 def _input_qss() -> str:

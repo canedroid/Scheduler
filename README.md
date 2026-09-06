@@ -93,6 +93,11 @@ py -3 -m pytest
 Covers parsing, line-anchored writes, grace-window classification, missed-task
 aggregation, and headless UI smoke checks (offscreen).
 
+## Performance
+
+~41 MB RAM idle in the tray, 0% CPU. A 600-task vault polls in under 1 ms.
+See **[BENCHMARKS.md](BENCHMARKS.md)** for full numbers.
+
 ## Layout
 
 ```

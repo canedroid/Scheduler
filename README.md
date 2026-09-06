@@ -137,3 +137,7 @@ vault/                   sample markdown vault
 scripts/                 login task + cue-wav generator
 tests/                   pytest suite
 ```
+
+## License
+
+MIT License @ canedroid — see [LICENSE](LICENSE)

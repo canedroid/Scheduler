@@ -48,6 +48,7 @@ class SystemPopup(QWidget):
             self.setWindowFlag(Qt.WindowType.WindowDoesNotAcceptFocus, True)
 
         self.setFixedSize(DIALOG_WIDTH, DIALOG_HEIGHT)
+        self.setWindowOpacity(config.WINDOW_OPACITY)
         self.setGraphicsEffect(theme.glow(self, config.PURPLE, blur=48, alpha=235))
         self._build_ui()
 
@@ -145,9 +146,9 @@ class SystemPopup(QWidget):
 
         rect = self.rect().adjusted(1, 1, -1, -1)
         gradient = QLinearGradient(0, 0, 0, rect.height())
-        gradient.setColorAt(0.0, QColor(38, 38, 38, 235))
-        gradient.setColorAt(0.7, QColor(22, 22, 22, 222))
-        gradient.setColorAt(1.0, QColor(16, 16, 16, 235))
+        gradient.setColorAt(0.0, QColor(38, 38, 38, 255))
+        gradient.setColorAt(0.7, QColor(22, 22, 22, 255))
+        gradient.setColorAt(1.0, QColor(16, 16, 16, 255))
         painter.setBrush(gradient)
         painter.setPen(QPen(QColor(config.PURPLE_GLOW), 1, cap=Qt.PenCapStyle.SquareCap))
         painter.drawRoundedRect(rect, 14, 14)

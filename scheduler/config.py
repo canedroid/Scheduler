@@ -61,3 +61,5 @@ WARNING = "#c0c0c0"
 
 FONT_FAMILY = "Segoe UI"
 FONT_FAMILY_HEADER = "Bahnschrift"
+
+WINDOW_OPACITY = 0.75

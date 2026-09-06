@@ -38,9 +38,14 @@ class TaskWatcher(QThread):
         self._vault = Path(vault)
         self._poll_interval = poll_interval
         self._stop_event = threading.Event()
+        self._wake_event = threading.Event()
 
     def stop(self) -> None:
         self._stop_event.set()
+
+    def wake(self) -> None:
+        """Interrupt the current sleep so the next poll runs immediately."""
+        self._wake_event.set()
 
     def run(self) -> None:
         log.info("Watcher online — monitoring %s", self._vault)
@@ -59,6 +64,7 @@ class TaskWatcher(QThread):
             self.fire.emit({"task": task, "late": late})
 
     def _sleep_interruptibly(self, seconds: int) -> None:
+        self._wake_event.clear()
         deadline = time.monotonic() + seconds
-        while not self._stop_event.is_set() and time.monotonic() < deadline:
+        while not self._stop_event.is_set() and not self._wake_event.is_set() and time.monotonic() < deadline:
             time.sleep(0.1)

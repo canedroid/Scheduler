@@ -33,12 +33,17 @@ def test_find_due_tasks_pure():
     assert descs == ["Due now", "Late within grace"]
 
 
+_QT_APP = None  # module-scoped strong ref: keeps the QApplication alive
+
+
 def _app():
+    global _QT_APP
     from PyQt6.QtWidgets import QApplication
 
     app = QApplication.instance()
     if app is None:
         app = QApplication([])
+    _QT_APP = app
     return app
 
 

@@ -172,11 +172,11 @@ def test_settings_window_slider_drives_app_opacity():
         settings._slider.setValue(100)
         assert theme.current_opacity() == 1.0
         settings._slider.setValue(0)
-        assert theme.current_opacity() == 0.2  # slider floor (20%) matches OPACITY_MIN
+        assert theme.current_opacity() == 0.1  # slider floor (10%) matches OPACITY_MIN
         saved = []
         settings.saved.connect(lambda v: saved.append(v))
         settings.dismiss()
-        assert saved == [0.2]
+        assert saved == [0.1]
         calendar.close()
     finally:
         theme.set_opacity(0.75)

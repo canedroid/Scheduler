@@ -35,7 +35,7 @@ Range events live in the **start day's** file as a dated range line:
   event coverage; clicking a day jumps the scheduler panel to that day. The header's
   **✕** closes it, and **⚙** opens a transparency slider.
 - **Window transparency** — the calendar's **⚙** button opens a live slider
-  (20–100%) that re-tints the calendar, planner and missed-task windows on the
+  (10–100%) that re-tints the calendar, planner and missed-task windows on the
   spot. The choice is saved to `scheduler_state.json` and restored on launch.
 - When a range event enters its advance window, a frameless `REMINDER` popup
   appears in the system tray announcing the upcoming event (the `OPEN PLANNER`

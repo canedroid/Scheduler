@@ -120,7 +120,7 @@ def font_families() -> tuple[str, str]:
 # --------------------------------------------------------------------------- #
 # Live window opacity                                                          #
 # --------------------------------------------------------------------------- #
-OPACITY_MIN = 0.20
+OPACITY_MIN = 0.10
 OPACITY_MAX = 1.0
 
 _LIVE_WINDOWS: "weakref.WeakSet[QWidget]" = weakref.WeakSet()

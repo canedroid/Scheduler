@@ -109,10 +109,10 @@ class StateStore:
     @property
     def opacity(self) -> float:
         with self._lock:
-            return min(1.0, max(0.2, float(self._data.get("opacity", 0.75))))
+            return min(1.0, max(0.1, float(self._data.get("opacity", 0.75))))
 
     @opacity.setter
     def opacity(self, value: float) -> None:
         with self._lock:
-            self._data["opacity"] = min(1.0, max(0.2, float(value)))
+            self._data["opacity"] = min(1.0, max(0.1, float(value)))
         self.save()

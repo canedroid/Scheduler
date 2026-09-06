@@ -80,11 +80,11 @@ class SettingsWindow(QWidget):
         root.addWidget(self._value_label)
 
         slider_row = QHBoxLayout()
-        label_min = QLabel("ghost 20%", self)
+        label_min = QLabel("ghost 10%", self)
         label_min.setFont(theme.body_font(9))
         label_min.setStyleSheet(f"color: {config.TEXT_DIM}; background: transparent;")
         slider = QSlider(Qt.Orientation.Horizontal, self)
-        slider.setRange(20, 100)
+        slider.setRange(10, 100)
         slider.setValue(round(theme.current_opacity() * 100))
         slider.setTickInterval(5)
         slider.setCursor(Qt.CursorShape.PointingHandCursor)

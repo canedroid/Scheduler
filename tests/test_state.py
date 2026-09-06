@@ -16,7 +16,7 @@ def test_opacity_clamped(tmp_path):
     store.opacity = 5.0
     assert store.opacity == 1.0
     store.opacity = 0.05
-    assert store.opacity == 0.2
+    assert store.opacity == 0.1
 
 
 def test_opacity_missing_defaults_safely(tmp_path):

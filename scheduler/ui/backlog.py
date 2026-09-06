@@ -44,7 +44,7 @@ class BacklogWindow(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
         self.setWindowFlag(Qt.WindowType.WindowDoesNotAcceptFocus, True)
         self.setFixedSize(BACKLOG_WIDTH, 420)
-        self.setWindowOpacity(config.WINDOW_OPACITY)
+        theme.bind_opacity(self)
         self.setGraphicsEffect(theme.glow(self, config.PURPLE, blur=52, alpha=245))
         self._build_ui()
 

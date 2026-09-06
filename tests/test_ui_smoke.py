@@ -133,3 +133,51 @@ def test_calendar_window_builds_and_emits_day(tmp_path):
     calendar._shift_month(1)
     calendar._jump_today()
     calendar.close()
+
+
+def test_calendar_has_close_and_settings_buttons(tmp_path):
+    app = _app()
+    from PyQt6.QtWidgets import QPushButton
+
+    from scheduler.ui.calendar_window import CalendarWindow
+
+    calendar = CalendarWindow(tmp_path)
+    calendar.show()
+    buttons = {b.text() for b in calendar.findChildren(QPushButton)}
+    assert "✕" in buttons
+    assert "⚙" in buttons
+    close_btn = [b for b in calendar.findChildren(QPushButton) if b.text() == "✕"][0]
+    close_btn.click()
+    assert not calendar.isVisible()  # hides, never destroys (reopen is instant)
+    calendar.close()
+
+
+def test_settings_window_slider_drives_app_opacity():
+    app = _app()
+    from scheduler import config as cfg
+    from scheduler.ui import theme
+    from scheduler.ui.calendar_window import CalendarWindow
+    from scheduler.ui.settings_window import SettingsWindow
+
+    try:
+        theme.set_opacity(0.75)
+        calendar = CalendarWindow(".")
+        calendar.show()
+        settings = SettingsWindow()
+        settings.show()
+        settings._slider.setValue(90)
+        assert theme.current_opacity() == 0.9
+        assert cfg.WINDOW_OPACITY == 0.9
+        assert abs(calendar.windowOpacity() - 0.9) < 0.02  # live update (quantized by the compositor)
+        settings._slider.setValue(100)
+        assert theme.current_opacity() == 1.0
+        settings._slider.setValue(0)
+        assert theme.current_opacity() == 0.2  # slider floor (20%) matches OPACITY_MIN
+        saved = []
+        settings.saved.connect(lambda v: saved.append(v))
+        settings.dismiss()
+        assert saved == [0.2]
+        settings.close()
+        calendar.close()
+    finally:
+        theme.set_opacity(0.75)

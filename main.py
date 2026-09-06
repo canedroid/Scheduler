@@ -57,6 +57,7 @@ def run(argv: list[str] | None = None) -> int:
     vault = config.VAULT_DIR
     _ensure_vault(vault)
     state = StateStore(config.STATE_FILE)
+    config.WINDOW_OPACITY = state.opacity  # restore the user's transparency setting
 
     popups: set[SystemPopup] = set()
 
@@ -117,6 +118,8 @@ def run(argv: list[str] | None = None) -> int:
     def open_calendar() -> None:
         calendar.refresh()
         calendar.show_centered()
+
+    calendar.set_opacity_sink(lambda opacity, s=state: setattr(s, "opacity", opacity))
 
     def day_to_planner(day) -> None:
         planner.select_day(day)

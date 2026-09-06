@@ -66,7 +66,7 @@ class GatePlanner(QWidget):
 
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setFixedSize(PLANNER_WIDTH, PLANNER_HEIGHT)
-        self.setWindowOpacity(config.WINDOW_OPACITY)
+        theme.bind_opacity(self)
         self.setGraphicsEffect(theme.glow(self, config.PURPLE, blur=52, alpha=245))
         self._build_ui()
         self._refresh()

@@ -16,6 +16,7 @@ DEFAULTS = {
     "fired": [],
     "sound": True,
     "force_focus": False,
+    "opacity": 0.75,
 }
 
 
@@ -103,4 +104,15 @@ class StateStore:
     def force_focus(self, value: bool) -> None:
         with self._lock:
             self._data["force_focus"] = bool(value)
+        self.save()
+
+    @property
+    def opacity(self) -> float:
+        with self._lock:
+            return min(1.0, max(0.2, float(self._data.get("opacity", 0.75))))
+
+    @opacity.setter
+    def opacity(self, value: float) -> None:
+        with self._lock:
+            self._data["opacity"] = min(1.0, max(0.2, float(value)))
         self.save()

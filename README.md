@@ -32,7 +32,11 @@ Range events live in the **start day's** file as a dated range line:
 - The `(⏰ …)` suffix sets an advance-notice lead (`m`/`h`/`d`); without it the lead
   defaults to **day-before**. Same-day events don't need a range — they're plain tasks.
 - The tray menu's **▦ Calendar** opens a month view showing pending-task counts and
-  event coverage; clicking a day jumps the scheduler panel to that day.
+  event coverage; clicking a day jumps the scheduler panel to that day. The header's
+  **✕** closes it, and **⚙** opens a transparency slider.
+- **Window transparency** — the calendar's **⚙** button opens a live slider
+  (20–100%) that re-tints the calendar, planner and missed-task windows on the
+  spot. The choice is saved to `scheduler_state.json` and restored on launch.
 - When a range event enters its advance window, a frameless `REMINDER` popup
   appears in the system tray announcing the upcoming event (the `OPEN PLANNER`
   button jumps to the event's day).

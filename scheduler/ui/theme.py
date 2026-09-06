@@ -1,10 +1,16 @@
 """Theme helpers for the monochrome HUD: dark gray glass, white accent, HUD fonts."""
 from __future__ import annotations
 
+import weakref
+from typing import TYPE_CHECKING
+
 from PyQt6.QtGui import QColor, QFont, QFontDatabase
 from PyQt6.QtWidgets import QGraphicsDropShadowEffect
 
 from scheduler import config
+
+if TYPE_CHECKING:
+    from PyQt6.QtWidgets import QWidget
 
 
 def qcolor(hex_value: str, alpha: int = 255) -> QColor:
@@ -109,3 +115,34 @@ def font_families() -> tuple[str, str]:
     header = config.FONT_FAMILY_HEADER if config.FONT_FAMILY_HEADER in available else "Segoe UI"
     body = config.FONT_FAMILY if config.FONT_FAMILY in available else "Calibri"
     return header, body
+
+
+# --------------------------------------------------------------------------- #
+# Live window opacity                                                          #
+# --------------------------------------------------------------------------- #
+OPACITY_MIN = 0.20
+OPACITY_MAX = 1.0
+
+_LIVE_WINDOWS: "weakref.WeakSet[QWidget]" = weakref.WeakSet()
+
+
+def bind_opacity(widget: "QWidget") -> None:
+    """Register a main window so its opacity updates live with the app setting."""
+    _LIVE_WINDOWS.add(widget)
+    widget.setWindowOpacity(current_opacity())
+
+
+def current_opacity() -> float:
+    return float(config.WINDOW_OPACITY)
+
+
+def set_opacity(value: float) -> float:
+    """Apply a new opacity to the whole app: config + every live window."""
+    value = min(OPACITY_MAX, max(OPACITY_MIN, float(value)))
+    config.WINDOW_OPACITY = value
+    for widget in list(_LIVE_WINDOWS):
+        try:
+            widget.setWindowOpacity(value)
+        except RuntimeError:
+            pass  # widget was deleted since the weak reference was taken
+    return value

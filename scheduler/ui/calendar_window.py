@@ -42,10 +42,12 @@ class CalendarWindow(QWidget):
         self._month = today.month
         self._counts: dict[date, int] = {}
         self._covered: set[date] = set()
+        self._settings: "QWidget | None" = None
+        self._opacity_saved = None
 
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setFixedSize(CALENDAR_WIDTH, CALENDAR_HEIGHT)
-        self.setWindowOpacity(config.WINDOW_OPACITY)
+        theme.bind_opacity(self)
         self.setGraphicsEffect(theme.glow(self, config.PURPLE, blur=52, alpha=245))
         self._build_ui()
         self.refresh()
@@ -74,16 +76,30 @@ class CalendarWindow(QWidget):
         back_btn = QPushButton("◂", self)
         fwd_btn = QPushButton("▸", self)
         today_btn = QPushButton("TODAY", self)
-        for button, outline in ((back_btn, config.TEXT_DIM), (fwd_btn, config.TEXT_DIM), (today_btn, config.PURPLE_GLOW)):
+        settings_btn = QPushButton("⚙", self)
+        settings_btn.setToolTip("Settings — transparency")
+        close_btn = QPushButton("✕", self)
+        close_btn.setToolTip("Close calendar")
+        for button, outline in (
+            (back_btn, config.TEXT_DIM),
+            (fwd_btn, config.TEXT_DIM),
+            (today_btn, config.PURPLE_GLOW),
+            (settings_btn, config.PURPLE_GLOW),
+            (close_btn, config.TEXT_DIM),
+        ):
             button.setStyleSheet(theme.button_qss(outline, "rgba(200, 200, 200, 30)", padding="4px 12px"))
             button.setCursor(Qt.CursorShape.PointingHandCursor)
         back_btn.clicked.connect(lambda: self._shift_month(-1))
         fwd_btn.clicked.connect(lambda: self._shift_month(1))
         today_btn.clicked.connect(self._jump_today)
+        settings_btn.clicked.connect(self._open_settings)
+        close_btn.clicked.connect(self._hide_self)
         header.addWidget(self._month_label)
         header.addWidget(back_btn)
         header.addWidget(fwd_btn)
         header.addWidget(today_btn)
+        header.addWidget(settings_btn)
+        header.addWidget(close_btn)
         root.addLayout(header)
 
         week_row = QGridLayout()
@@ -171,6 +187,26 @@ class CalendarWindow(QWidget):
         today = date.today()
         self._year, self._month = today.year, today.month
         self.refresh()
+
+    def _open_settings(self) -> None:
+        if self._settings is None:
+            from scheduler.ui.settings_window import SettingsWindow
+
+            self._settings = SettingsWindow()
+            self._settings.saved.connect(self._settings_saved)
+        self._settings.show_centered()
+
+    def _settings_saved(self, opacity: float) -> None:
+        on_saved = getattr(self, "_opacity_saved", None)
+        if on_saved is not None:
+            on_saved(opacity)
+
+    def set_opacity_sink(self, callback) -> None:
+        """Wire the settings dialog's 'saved' value to a persistent store."""
+        self._opacity_saved = callback
+
+    def _hide_self(self) -> None:
+        self.hide()
 
     def select_day(self, day: date) -> None:
         """Open the planner on `day` (also exposes a programmatic entry point)."""

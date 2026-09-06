@@ -35,8 +35,9 @@ py -3 main.py
 ```
 
 or double-click `run_scheduler.bat`. Nothing is shown until an alert fires — the
-app sits quietly in the background, polling every 10 s. A sample vault ships with
-a demo past-due task so you see the backlog on first boot.
+app sits quietly in the system tray (purple `◈` icon, right-click for the menu),
+polling every 10 s. A sample vault ships with a demo past-due task so you see the
+backlog on first boot.
 
 ### Login autostart (optional)
 
@@ -47,6 +48,28 @@ a demo past-due task so you see the backlog on first boot.
    ```powershell
    schtasks /create /tn "Scheduler" /xml "%CD%\scripts\scheduler-login-task.xml"
    ```
+
+## Adding schedules — two ways
+
+### 1. Gate Planner window (recommended for daily use)
+
+Right-click the tray icon → **▣ Gate Planner** (or left-click the tray icon, or
+launch with `py -3 main.py --planner`). The planner is a frameless HUD panel
+matching the popup aesthetic:
+
+- Pick a **DAY**, type a **time** + **description**, hit **ADD GATE** — it
+  writes `- [ ] HH:MM | description` into the right `YYYY-MM-DD.md` (creating the
+  file if needed).
+- Existing gates for that day are listed below with inline controls: edit the
+  time to reschedule, **✓** to mark complete, **✕** to delete.
+- Every write is line-anchored and re-read afterwards, so edits made in Obsidian
+  are never clobbered.
+
+### 2. Edit markdown directly
+
+```powershell
+notepad D:\randombullshitgoburr\Scheduler\vault\2026-09-06.md
+```
 
 ## Behavior
 
@@ -73,14 +96,16 @@ aggregation, and headless UI smoke checks (offscreen).
 ## Layout
 
 ```
-main.py                  entry point
+main.py                  entry point (+ --planner flag)
 scheduler/config.py      paths, timing, theme, task-line regex
-scheduler/markdown_parser.py   read / complete / snooze (line-anchor writes)
+scheduler/markdown_parser.py   read / complete / snooze / reschedule / add / delete (line-anchor writes)
 scheduler/init_check.py  boot-time missed-schedule scan + classification
 scheduler/state.py       JSON cache (penalties, fired hashes, prefs)
 scheduler/watcher.py     polling QThread -> live popup events
 scheduler/ui/popup.py    frameless transparent notification
 scheduler/ui/backlog.py  MISSED QUESTS review window
+scheduler/ui/planner.py  Gate Planner panel (add / reschedule / complete / delete)
+scheduler/ui/tray.py     system tray icon + menu
 vault/                   sample markdown vault
 scripts/                 login task + cue-wav generator
 tests/                   pytest suite

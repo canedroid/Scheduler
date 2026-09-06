@@ -40,34 +40,31 @@ from scheduler.markdown_parser import (
 )
 from scheduler.models import Event, Task
 from scheduler.ui import theme
+from scheduler.ui.glass import GlassShell
 
 log = logging.getLogger(__name__)
 
 PLANNER_WIDTH = 520
 PLANNER_HEIGHT = 780
 STATUS_MS = 2600
+GLOW_BLUR = 52
+GLOW_ALPHA = 245
 
 
-class GatePlanner(QWidget):
-    """Full control panel for a day's tasks (add / reschedule / complete / delete)."""
+class _PlannerCard(QWidget):
+    """The glass card: day picker, add forms and the task/event list."""
 
     tasks_changed = pyqtSignal()  # so the host can resync (e.g. backlog titles)
 
-    def __init__(self, vault: Path, parent=None):
-        super().__init__(
-            parent,
-            Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool,
-        )
+    def __init__(self, vault: Path):
+        super().__init__()
         self._vault = Path(vault)
         self._tasks: list[Task] = []
         self._status_timer = QTimer(self)
         self._status_timer.setSingleShot(True)
         self._status_timer.timeout.connect(self._clear_status)
 
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setFixedSize(PLANNER_WIDTH, PLANNER_HEIGHT)
-        theme.bind_opacity(self)
-        self.setGraphicsEffect(theme.glow(self, config.PURPLE, blur=52, alpha=245))
         self._build_ui()
         self._refresh()
 
@@ -89,7 +86,7 @@ class GatePlanner(QWidget):
             f"color: {config.TEXT_DIM}; background: transparent; border: none;"
             f"font-size: 16px; padding: 2px 8px;"
         )
-        close_btn.clicked.connect(self.close)
+        close_btn.clicked.connect(lambda: self.window().close())
 
         header.addWidget(title)
         header.addStretch(1)
@@ -463,21 +460,28 @@ class GatePlanner(QWidget):
     def _clear_status(self) -> None:
         self._status_label.hide()
 
-    # ------------------------------------------------------------------ geom #
-    def show_centered(self) -> None:
-        from PyQt6.QtGui import QGuiApplication
 
-        geo = QGuiApplication.primaryScreen()
-        screen = geo.availableGeometry() if geo else self.geometry()
-        self.move(screen.center().x() - PLANNER_WIDTH // 2, screen.center().y() - PLANNER_HEIGHT // 2)
-        self.show()
-        self.raise_()
+class GatePlanner(GlassShell):
+    """Full control panel for a day's tasks; glow lives on the card, not the OS layer."""
 
-    def keyPressEvent(self, event) -> None:  # noqa: N802 (Qt naming)
-        if event.key() == Qt.Key.Key_Escape:
-            self.hide()
-        else:
-            super().keyPressEvent(event)
+    tasks_changed = pyqtSignal()  # so the host can resync (e.g. backlog titles)
+
+    def __init__(self, vault: Path, parent=None):
+        super().__init__(PLANNER_WIDTH, PLANNER_HEIGHT, GLOW_BLUR, GLOW_ALPHA)
+        card = _PlannerCard(vault)
+        card.tasks_changed.connect(self.tasks_changed)
+        self.mount(card, GLOW_BLUR, GLOW_ALPHA)
+
+    def select_day(self, day: date) -> None:
+        """Point the planner at `day` (used by the calendar double-click)."""
+        self.card.select_day(day)
+
+    def __getattr__(self, name: str):
+        """Transparently hand any leftover attribute/method access to the card."""
+        card = object.__getattribute__(self, "_mounted")
+        if card is None:
+            raise AttributeError(name)
+        return getattr(card, name)
 
     def closeEvent(self, event) -> None:  # noqa: N802 (Qt naming) — hide, never destroy
         event.ignore()

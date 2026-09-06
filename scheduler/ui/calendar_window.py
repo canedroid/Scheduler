@@ -10,32 +10,32 @@ import logging
 from datetime import date
 from pathlib import Path
 
-from PyQt6.QtCore import QPoint, Qt, pyqtSignal
-from PyQt6.QtGui import QColor, QLinearGradient, QPainter, QPen, QGuiApplication
+from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtGui import QColor, QLinearGradient, QPainter, QPen
 from PyQt6.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
 from scheduler import config
 from scheduler.calendar import month_counts, month_matrix, range_covered_days
 from scheduler.markdown_parser import read_all_events, read_all_tasks
 from scheduler.ui import theme
+from scheduler.ui.glass import GlassShell
 
 log = logging.getLogger(__name__)
 
 WEEK_HEADERS = ("MO", "TU", "WE", "TH", "FR", "SA", "SU")
 CALENDAR_WIDTH = 640
 CALENDAR_HEIGHT = 560
+GLOW_BLUR = 52
+GLOW_ALPHA = 245
 
 
-class CalendarWindow(QWidget):
-    """Frameless month grid; `dayActivated` fires with the clicked `date`."""
+class _CalendarCard(QWidget):
+    """The glass card: month grid, pending-task counts and range-event coverage."""
 
     dayActivated = pyqtSignal(object)
 
-    def __init__(self, vault: Path, parent=None):
-        super().__init__(
-            parent,
-            Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool,
-        )
+    def __init__(self, vault: Path):
+        super().__init__()
         self._vault = Path(vault)
         today = date.today()
         self._year = today.year
@@ -45,10 +45,7 @@ class CalendarWindow(QWidget):
         self._settings: "QWidget | None" = None
         self._opacity_saved = None
 
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setFixedSize(CALENDAR_WIDTH, CALENDAR_HEIGHT)
-        theme.bind_opacity(self)
-        self.setGraphicsEffect(theme.glow(self, config.PURPLE, blur=52, alpha=245))
         self._build_ui()
         self.refresh()
 
@@ -222,7 +219,7 @@ class CalendarWindow(QWidget):
         self._opacity_saved = callback
 
     def _hide_self(self) -> None:
-        self.hide()
+        self.window().hide()
 
     def select_day(self, day: date) -> None:
         """Open the planner on `day` (also exposes a programmatic entry point)."""
@@ -246,12 +243,40 @@ class CalendarWindow(QWidget):
         painter.setPen(QPen(top, 1.5))
         painter.drawLine(rect.left() + 20, rect.top() + 2, rect.right() - 20, rect.top() + 2)
 
-    def show_centered(self) -> None:
-        primary = QGuiApplication.primaryScreen()
-        geo = primary.availableGeometry() if primary else self.geometry()
-        self.move(QPoint(geo.center().x() - CALENDAR_WIDTH // 2, geo.center().y() - CALENDAR_HEIGHT // 2))
-        self.show()
-        self.raise_()
+
+class CalendarWindow(GlassShell):
+    """Mounts the calendar card inside a glass shell (glow stays off the top level)."""
+
+    dayActivated = pyqtSignal(object)
+
+    def __init__(self, vault: Path, parent=None):
+        super().__init__(CALENDAR_WIDTH, CALENDAR_HEIGHT, GLOW_BLUR, GLOW_ALPHA)
+        card = _CalendarCard(vault)
+        card.dayActivated.connect(self.dayActivated)
+        self.mount(card, GLOW_BLUR, GLOW_ALPHA)
+
+    # -- facade kept so callers/tests talk to the window as before ----------- #
+    def refresh(self) -> None:
+        self.card.refresh()
+
+    def select_day(self, day: date) -> None:
+        self.card.select_day(day)
+
+    def _shift_month(self, offset: int) -> None:
+        self.card._shift_month(offset)
+
+    def _jump_today(self) -> None:
+        self.card._jump_today()
+
+    def _open_settings(self) -> None:
+        self.card._open_settings()
+
+    def set_opacity_sink(self, callback) -> None:
+        self.card.set_opacity_sink(callback)
+
+    @property
+    def _settings(self) -> "QWidget | None":
+        return self.card._settings
 
     def closeEvent(self, event) -> None:  # noqa: N802 (Qt naming) — hide, never destroy
         event.ignore()

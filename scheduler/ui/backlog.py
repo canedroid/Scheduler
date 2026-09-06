@@ -22,30 +22,31 @@ from PyQt6.QtWidgets import (
 from scheduler import config
 from scheduler.models import MissedTask
 from scheduler.ui import theme
+from scheduler.ui.glass import GlassShell
 
 log = logging.getLogger(__name__)
 
 BACKLOG_WIDTH = 470
+BACKLOG_HEIGHT = 420
 HOLD_MS = 1500
+GLOW_BLUR = 52
+GLOW_ALPHA = 245
 
 
-class BacklogWindow(QWidget):
+class _BacklogCard(QWidget):
+    """The glass card: missed-task list with accept and hold-to-reset penalty."""
+
     accepted = pyqtSignal(int)   # penalties to record
     reset = pyqtSignal()         # reset penalty counter
 
     def __init__(self, missed: list[MissedTask], penalty_count: int = 0, initial: bool = False):
-        super().__init__(None, Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
+        super().__init__()
         self._missed = missed
         self._penalty_count = penalty_count
         self._initial = initial
         self._reset_armed = False
 
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
-        self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
-        self.setWindowFlag(Qt.WindowType.WindowDoesNotAcceptFocus, True)
-        self.setFixedSize(BACKLOG_WIDTH, 420)
-        theme.bind_opacity(self)
-        self.setGraphicsEffect(theme.glow(self, config.PURPLE, blur=52, alpha=245))
+        self.setFixedSize(BACKLOG_WIDTH, BACKLOG_HEIGHT)
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -138,7 +139,7 @@ class BacklogWindow(QWidget):
     # -- actions ---------------------------------------------------------------- #
     def _accept(self) -> None:
         self.accepted.emit(len(self._missed) if self._initial else 0)
-        self.close()
+        self.window().close()
 
     def _arm_reset(self) -> None:
         self._reset_armed = True
@@ -159,8 +160,41 @@ class BacklogWindow(QWidget):
         self._penalty_count = count
         self._penalty_label.setText(f"MISSED TASKS  {len(self._missed)}   ·   PENALTY  {count}")
 
-    def mousePressEvent(self, event) -> None:  # noqa: N802 (Qt naming)
-        super().mousePressEvent(event)
+
+class BacklogWindow(GlassShell):
+    """Mounts the backlog card inside a glass shell (glow stays off the top level)."""
+
+    accepted = pyqtSignal(int)   # penalties to record
+    reset = pyqtSignal()         # reset penalty counter
+
+    def __init__(self, missed: list[MissedTask], penalty_count: int = 0, initial: bool = False):
+        super().__init__(BACKLOG_WIDTH, BACKLOG_HEIGHT, GLOW_BLUR, GLOW_ALPHA)
+        card = _BacklogCard(missed, penalty_count, initial)
+        card.accepted.connect(self.accepted)
+        card.reset.connect(self.reset)
+        self.mount(card, GLOW_BLUR, GLOW_ALPHA)
+
+    # -- facade kept so callers/tests talk to the window as before ----------- #
+    def _accept(self) -> None:
+        self.card._accept()
+
+    def _arm_reset(self) -> None:
+        self.card._arm_reset()
+
+    def set_penalty_count(self, count: int) -> None:
+        self.card.set_penalty_count(count)
+
+    @property
+    def _list(self) -> QListWidget:
+        return self.card._list
+
+    @property
+    def _reset_btn(self) -> QPushButton:
+        return self.card._reset_btn
+
+    @property
+    def _reset_timer(self) -> QTimer:
+        return self.card._reset_timer
 
     def keyPressEvent(self, event) -> None:  # noqa: N802 (Qt naming)
         if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter, Qt.Key.Key_Escape):
@@ -169,5 +203,5 @@ class BacklogWindow(QWidget):
             super().keyPressEvent(event)
 
     def closeEvent(self, event) -> None:  # noqa: N802 (Qt naming)
-        log.debug("Backlog closed with %d tasks shown", len(self._missed))
+        log.debug("Backlog closed with %d tasks shown", len(self.card._missed))
         super().closeEvent(event)

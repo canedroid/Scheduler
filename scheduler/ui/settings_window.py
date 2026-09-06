@@ -9,8 +9,8 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from PyQt6.QtCore import QPoint, Qt, pyqtSignal
-from PyQt6.QtGui import QColor, QGuiApplication, QLinearGradient, QPainter, QPen
+from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtGui import QColor, QLinearGradient, QPainter, QPen
 from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -22,29 +22,25 @@ from PyQt6.QtWidgets import (
 
 from scheduler import config
 from scheduler.ui import theme
+from scheduler.ui.glass import GlassShell
 
 log = logging.getLogger(__name__)
 
 SETTINGS_WIDTH = 360
 SETTINGS_HEIGHT = 170
+GLOW_BLUR = 40
+GLOW_ALPHA = 235
 
 
-class SettingsWindow(QWidget):
-    """Live opacity control; hides on dismiss so it can be reopened."""
+class _SettingsCard(QWidget):
+    """The glass card holding the live opacity slider."""
 
     changed = pyqtSignal(float)   # emitted on every slider move (write-through)
     saved = pyqtSignal(float)     # emitted on dismiss (final persist)
 
-    def __init__(self, vault: Path | None = None, parent=None):
-        del vault
-        super().__init__(
-            parent,
-            Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool,
-        )
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+    def __init__(self):
+        super().__init__()
         self.setFixedSize(SETTINGS_WIDTH, SETTINGS_HEIGHT)
-        theme.bind_opacity(self)
-        self.setGraphicsEffect(theme.glow(self, config.PURPLE, blur=40, alpha=235))
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -126,14 +122,7 @@ class SettingsWindow(QWidget):
 
     def dismiss(self) -> None:
         self.saved.emit(theme.current_opacity())
-        self.hide()
-
-    def show_centered(self) -> None:
-        primary = QGuiApplication.primaryScreen()
-        geo = primary.availableGeometry() if primary else self.geometry()
-        self.move(QPoint(geo.center().x() - SETTINGS_WIDTH // 2, geo.center().y() - SETTINGS_HEIGHT // 2))
-        self.show()
-        self.raise_()
+        self.window().hide()
 
     def mousePressEvent(self, event) -> None:  # noqa: N802 (Qt naming)
         if event.button() == Qt.MouseButton.RightButton:
@@ -152,6 +141,29 @@ class SettingsWindow(QWidget):
         painter.setPen(QPen(QColor(config.PURPLE_GLOW), 1))
         painter.drawRoundedRect(rect, 14, 14)
         painter.end()
+
+
+class SettingsWindow(GlassShell):
+    """Mounts the settings card inside a glass shell (glow stays off the top level)."""
+
+    changed = pyqtSignal(float)   # emitted on every slider move (write-through)
+    saved = pyqtSignal(float)     # emitted on dismiss (final persist)
+
+    def __init__(self, vault: Path | None = None, parent=None):
+        del vault
+        super().__init__(SETTINGS_WIDTH, SETTINGS_HEIGHT, GLOW_BLUR, GLOW_ALPHA)
+        card = _SettingsCard()
+        card.changed.connect(self.changed)
+        card.saved.connect(self.saved)
+        self.mount(card, GLOW_BLUR, GLOW_ALPHA)
+
+    # -- facade kept so callers/tests talk to the window as before ----------- #
+    def dismiss(self) -> None:
+        self.card.dismiss()
+
+    @property
+    def _slider(self) -> QSlider:
+        return self.card._slider
 
     def closeEvent(self, event) -> None:  # noqa: N802 (Qt naming) — hide, never destroy
         event.ignore()

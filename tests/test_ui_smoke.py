@@ -224,3 +224,50 @@ def test_settings_slider_writes_through_to_persistence_sink():
         calendar.close()
     finally:
         theme.set_opacity(0.75)
+
+
+def test_glow_lives_on_card_not_top_level_window(tmp_path):
+    """Regression: the drop shadow must never sit on the layered top-level.
+
+    On Windows that combination pads the window's layered update rectangle into
+    negative coordinates, which Windows rejects and leaves white unpainted
+    regions (the calendar white blob + UpdateLayeredWindowIndirect spam).
+    """
+    app = _app()
+    from datetime import datetime
+
+    from PyQt6.QtWidgets import QGraphicsDropShadowEffect
+
+    from scheduler.models import Event
+    from scheduler.ui.backlog import BacklogWindow
+    from scheduler.ui.calendar_window import CalendarWindow
+    from scheduler.ui.planner import GatePlanner
+    from scheduler.ui.popup import EventReminderPopup, SystemPopup
+    from scheduler.ui.settings_window import SettingsWindow
+
+    event = Event(
+        start=datetime(2026, 9, 10, 9, 0),
+        end=datetime(2026, 9, 12, 18, 0),
+        title="Exams",
+        remind_min=None,
+        done=False,
+        source_file=None,
+        source_line="",
+        line_no=0,
+    )
+    windows = [
+        CalendarWindow(tmp_path),
+        GatePlanner(tmp_path),
+        SettingsWindow(),
+        BacklogWindow([]),
+        SystemPopup(_task()),
+        EventReminderPopup(event),
+    ]
+    for window in windows:
+        assert window.window() is window, f"{type(window).__name__} should be the top level"
+        assert window.graphicsEffect() is None, f"{type(window).__name__} must not glow on the top level"
+        assert isinstance(window.card.graphicsEffect(), QGraphicsDropShadowEffect), type(window).__name__
+        assert window.card.parentWidget() is window
+    for window in windows:
+        window.close()
+    app.processEvents()

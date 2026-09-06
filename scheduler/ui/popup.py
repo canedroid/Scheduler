@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime
 
-from PyQt6.QtCore import QPoint, QRect, QTimer, Qt, pyqtSignal
+from PyQt6.QtCore import QPoint, QRect, QRectF, QTimer, Qt, pyqtSignal
 from PyQt6.QtGui import (
     QBrush,
     QCloseEvent,
@@ -21,7 +21,6 @@ from PyQt6.QtGui import (
     QPen,
 )
 from PyQt6.QtWidgets import (
-    QGraphicsDropShadowEffect,
     QHBoxLayout,
     QLabel,
     QMenu,
@@ -33,32 +32,30 @@ from PyQt6.QtWidgets import (
 from scheduler import config
 from scheduler.models import Event, Task
 from scheduler.ui import theme
+from scheduler.ui.glass import GlassShell
 
 log = logging.getLogger(__name__)
 
 DIALOG_WIDTH = 400
 DIALOG_HEIGHT = 212
+GLOW_BLUR = 48
+GLOW_ALPHA = 235
 
 
-class SystemPopup(QWidget):
+class _SystemPopupCard(QWidget):
+    """The toast glass card: header, description, and complete/snooze/dismiss."""
+
     completed = pyqtSignal(object)        # Task
     snoozed = pyqtSignal(object, int)     # Task, minutes
     dismissed = pyqtSignal(object)        # Task
 
-    def __init__(self, task: Task, late: bool = False, force_focus: bool = False):
-        super().__init__(None, Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
+    def __init__(self, task: Task, late: bool = False):
+        super().__init__()
         self._task = task
         self._late = late
         self._closed = False
 
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
-        self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, not force_focus)
-        if not force_focus:
-            self.setWindowFlag(Qt.WindowType.WindowDoesNotAcceptFocus, True)
-
         self.setFixedSize(DIALOG_WIDTH, DIALOG_HEIGHT)
-        self.setWindowOpacity(config.WINDOW_OPACITY)
-        self.setGraphicsEffect(theme.glow(self, config.PURPLE, blur=48, alpha=235))
         self._build_ui()
 
         self._auto_hide = QTimer(self)
@@ -66,7 +63,6 @@ class SystemPopup(QWidget):
         self._auto_hide.timeout.connect(self.dismiss)
         self._auto_hide.start(config.POPUP_DURATION_MS)
 
-    # -- construction -------------------------------------------------------- #
     def _build_ui(self) -> None:
         header, _body = theme.font_families()
         root = QVBoxLayout(self)
@@ -148,8 +144,6 @@ class SystemPopup(QWidget):
 
     # -- painting ------------------------------------------------------------ #
     def paintEvent(self, event) -> None:  # noqa: N802 (Qt naming)
-        from PyQt6.QtGui import QColor, QLinearGradient, QPainter, QPen
-
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
@@ -168,27 +162,6 @@ class SystemPopup(QWidget):
         top_line.setAlpha(170)
         painter.setPen(QPen(top_line, 1.5))
         painter.drawLine(rect.left() + 18, rect.top() + 2, rect.right() - 18, rect.top() + 2)
-
-    # -- geometry ------------------------------------------------------------ #
-    def show_centered(self) -> None:
-        cursor = QCursor.pos()
-        screen = QGuiApplication.screenAt(cursor) or QGuiApplication.primaryScreen()
-        if screen is None:
-            self.center_on_screen()
-        else:
-            geo = screen.availableGeometry()
-            target = QPoint(
-                geo.center().x() - DIALOG_WIDTH // 2,
-                geo.center().y() - DIALOG_HEIGHT // 2,
-            )
-            self.move(target)
-        self.show()
-        self.raise_()
-
-    def center_on_screen(self) -> None:
-        screen = QGuiApplication.primaryScreen()
-        geo = screen.availableGeometry() if screen else self.geometry()
-        self.move(geo.center().x() - DIALOG_WIDTH // 2, geo.center().y() - DIALOG_HEIGHT // 2)
 
     # -- actions ------------------------------------------------------------- #
     def _complete(self) -> None:
@@ -245,16 +218,71 @@ class SystemPopup(QWidget):
         self._safe_close()
 
     def _safe_close(self) -> None:
-        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
-        self.close()
+        shell = self.window()
+        shell.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
+        shell.close()
 
     # -- click-anywhere-to-dismiss (addendum section 6) ---------------------- #
     def mousePressEvent(self, event) -> None:  # noqa: N802 (Qt naming)
         self.dismiss()
         super().mousePressEvent(event)
 
+
+class SystemPopup(GlassShell):
+    """Mounts the toast card inside a glass shell (glow stays off the top level)."""
+
+    completed = pyqtSignal(object)        # Task
+    snoozed = pyqtSignal(object, int)     # Task, minutes
+    dismissed = pyqtSignal(object)        # Task
+
+    def __init__(self, task: Task, late: bool = False, force_focus: bool = False):
+        super().__init__(DIALOG_WIDTH, DIALOG_HEIGHT, GLOW_BLUR, GLOW_ALPHA)
+        self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, not force_focus)
+        if not force_focus:
+            self.setWindowFlag(Qt.WindowType.WindowDoesNotAcceptFocus, True)
+
+        card = _SystemPopupCard(task, late)
+        card.completed.connect(self.completed)
+        card.snoozed.connect(self.snoozed)
+        card.dismissed.connect(self.dismissed)
+        self.mount(card, GLOW_BLUR, GLOW_ALPHA)
+
+    # -- facade kept so callers/tests talk to the window as before ----------- #
+    def _complete(self) -> None:
+        self.card._complete()
+
+    def dismiss(self) -> None:
+        self.card.dismiss()
+
+    def _snooze(self, minutes: int) -> None:
+        self.card._snooze(minutes)
+
+    def _snooze_menu(self) -> None:
+        self.card._snooze_menu()
+
+    # -- geometry ------------------------------------------------------------ #
+    def show_centered(self) -> None:
+        cursor = QCursor.pos()
+        screen = QGuiApplication.screenAt(cursor) or QGuiApplication.primaryScreen()
+        if screen is None:
+            self.center_on_screen()
+        else:
+            geo = screen.availableGeometry()
+            target = QPoint(
+                geo.center().x() - self.width() // 2,
+                geo.center().y() - self.height() // 2,
+            )
+            self.move(target)
+        self.show()
+        self.raise_()
+
+    def center_on_screen(self) -> None:
+        screen = QGuiApplication.primaryScreen()
+        geo = screen.availableGeometry() if screen else self.geometry()
+        self.move(geo.center().x() - self.width() // 2, geo.center().y() - self.height() // 2)
+
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802 (Qt naming)
-        log.debug("Popup closed for task %r", self._task.description)
+        log.debug("Popup closed for task %r", getattr(self.card, "_task", None))
         super().closeEvent(event)
 
 
@@ -269,23 +297,28 @@ def event_eta_text(start: datetime, now: datetime | None = None) -> str:
     return f"Starting {start:%A} at {start:%H:%M}"
 
 
-class EventReminderPopup(QWidget):
-    """Advance-notice popup for a multi-day event inside its lead window."""
+class _EventReminderCard(QWidget):
+    """The glass card for the advance-notice event reminder."""
 
     dismissed = pyqtSignal()
     openPlanner = pyqtSignal()  # jump the scheduler panel to the event's day
 
-    def __init__(self, event: Event, force_focus: bool = False, now: datetime | None = None):
+    def __init__(self, event: Event, now: datetime | None = None):
         super().__init__()
         self._event = event
         self._closed = False
         now = now or datetime.now()
         self._eta = event_eta_text(event.start, now)
 
-        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setFixedSize(DIALOG_WIDTH, DIALOG_HEIGHT)
+        self._build_ui()
 
+        self._auto_hide = QTimer(self)
+        self._auto_hide.setSingleShot(True)
+        self._auto_hide.setInterval(config.POPUP_DURATION_MS)
+        self._auto_hide.timeout.connect(self.dismiss)
+
+    def _build_ui(self) -> None:
         layout = QVBoxLayout(self)
         layout.setContentsMargins(18, 14, 18, 14)
         layout.setSpacing(8)
@@ -303,7 +336,7 @@ class EventReminderPopup(QWidget):
         header.addWidget(title)
         layout.addLayout(header)
 
-        desc = QLabel(event.title, self)
+        desc = QLabel(self._event.title, self)
         desc.setWordWrap(True)
         desc.setFont(theme.body_font(14, bold=True))
         desc.setStyleSheet(f"color: {config.TEXT}; background: transparent;")
@@ -335,30 +368,10 @@ class EventReminderPopup(QWidget):
         buttons.addWidget(ok_btn)
         layout.addLayout(buttons)
 
-        self._auto_hide = QTimer(self)
-        self._auto_hide.setSingleShot(True)
-        self._auto_hide.setInterval(config.POPUP_DURATION_MS)
-        self._auto_hide.timeout.connect(self.dismiss)
-
-        if force_focus:
-            self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, True)
-            self._auto_hide.stop()
-
     def _event_note(self) -> str:
         if self._event.end.date() > self._event.start.date():
             return f"{self._eta} · until {self._event.end:%A, %d %b %H:%M}"
         return self._eta
-
-    def show_centered(self) -> None:
-        self._auto_hide.start()
-        center = (
-            QApplication.primaryScreen().availableGeometry().center()
-            if QApplication.primaryScreen()
-            else QRect(0, 0, 400, 300).center()
-        )
-        self.move(center.x() - self.width() // 2, center.y() - self.height() // 2)
-        self.show()
-        self.raise_()
 
     def dismiss(self) -> None:
         if self._closed:
@@ -375,8 +388,9 @@ class EventReminderPopup(QWidget):
         self._safe_close()
 
     def _safe_close(self) -> None:
-        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
-        self.close()
+        shell = self.window()
+        shell.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
+        shell.close()
 
     # -- click-anywhere-to-dismiss ------------------------------------------- #
     def mousePressEvent(self, event) -> None:  # noqa: N802 (Qt naming)
@@ -388,6 +402,39 @@ class EventReminderPopup(QWidget):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.setBrush(QBrush(QColor(config.BG_GLASS_STRONG)))
         painter.setPen(QPen(QColor(config.PURPLE), 1))
-        painter.setOpacity(config.WINDOW_OPACITY)
         painter.drawRoundedRect(QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5), 14, 14)
         painter.end()
+
+
+class EventReminderPopup(GlassShell):
+    """Mounts the event-reminder card inside a glass shell (glow kept on the card)."""
+
+    dismissed = pyqtSignal()
+    openPlanner = pyqtSignal()  # jump the scheduler panel to the event's day
+
+    def __init__(self, event: Event, force_focus: bool = False, now: datetime | None = None):
+        super().__init__(DIALOG_WIDTH, DIALOG_HEIGHT, GLOW_BLUR, GLOW_ALPHA)
+        self._force_focus = force_focus
+        card = _EventReminderCard(event, now=now)
+        card.dismissed.connect(self.dismissed)
+        card.openPlanner.connect(self.openPlanner)
+        self.mount(card, GLOW_BLUR, GLOW_ALPHA)
+
+    # -- facade kept so callers/tests talk to the window as before ----------- #
+    def dismiss(self) -> None:
+        self.card.dismiss()
+
+    def _open_planner(self) -> None:
+        self.card._open_planner()
+
+    def show_centered(self) -> None:
+        if not self._force_focus:
+            self.card._auto_hide.start()
+        center = (
+            QGuiApplication.primaryScreen().availableGeometry().center()
+            if QGuiApplication.primaryScreen()
+            else QRect(0, 0, 400, 300).center()
+        )
+        self.move(center.x() - self.width() // 2, center.y() - self.height() // 2)
+        self.show()
+        self.raise_()

@@ -1,4 +1,4 @@
-"""Core domain models: a timestamped markdown Task and a MissedQuest wrapper."""
+"""Core domain models: a timestamped markdown Task and a MissedTask wrapper."""
 from __future__ import annotations
 
 import hashlib
@@ -43,7 +43,7 @@ def humanize_seconds(seconds: int) -> str:
 
 
 @dataclass
-class MissedQuest:
+class MissedTask:
     """An unchecked task whose scheduled time has already passed."""
 
     task: Task

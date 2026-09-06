@@ -1,8 +1,8 @@
-"""The "MISSED QUESTS" backlog review screen shown at boot (addendum §2, §11).
+"""The "MISSED TASKS" backlog review screen shown at boot (addendum §2, §11).
 
-Frameless dark-glass card listing every missed task chronologically with its
-lateness, a live PENALTY GATE counter, an Accept button that records one
-penalty per quest, and a hold-to-confirm penalty reset.
+Frameless dark-gray card listing every missed task chronologically with its
+lateness, a live SCHEDULER counter, an Accept button that records one
+penalty per task, and a hold-to-confirm penalty reset.
 """
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ from PyQt6.QtWidgets import (
 )
 
 from scheduler import config
-from scheduler.models import MissedQuest
+from scheduler.models import MissedTask
 from scheduler.ui import theme
 
 log = logging.getLogger(__name__)
@@ -33,7 +33,7 @@ class BacklogWindow(QWidget):
     accepted = pyqtSignal(int)   # penalties to record
     reset = pyqtSignal()         # reset penalty counter
 
-    def __init__(self, missed: list[MissedQuest], penalty_count: int = 0, initial: bool = False):
+    def __init__(self, missed: list[MissedTask], penalty_count: int = 0, initial: bool = False):
         super().__init__(None, Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
         self._missed = missed
         self._penalty_count = penalty_count
@@ -53,14 +53,14 @@ class BacklogWindow(QWidget):
         root.setSpacing(10)
 
         # header ---------------------------------------------------------------
-        title = QLabel("MISSED QUESTS", self)
+        title = QLabel("SCHEDULER", self)
         title.setFont(theme.header_font(17))
         title.setStyleSheet(f"color: {config.PURPLE_GLOW}; background: transparent;")
         title.setGraphicsEffect(theme.glow(title, config.PURPLE, blur=20, alpha=210))
         root.addWidget(title)
 
         subtitle = QLabel(self)
-        subtitle.setText(f"PENALTY GATE  {self._penalty_count}")
+        subtitle.setText(f"MISSED TASKS  {len(self._missed)}   ·   PENALTY  {self._penalty_count}")
         subtitle.setFont(theme.header_font(12))
         subtitle.setStyleSheet(f"color: {config.DANGER}; background: transparent;")
         subtitle.setObjectName("penaltyLabel")
@@ -69,9 +69,9 @@ class BacklogWindow(QWidget):
 
         notice = QLabel(self)
         if self._initial:
-            notice.setText(f"{len(self._missed)} unchecked quest{'' if len(self._missed) == 1 else 's'} left in the past.")
+            notice.setText(f"{len(self._missed)} unchecked task{'' if len(self._missed) == 1 else 's'} left in the past.")
         else:
-            notice.setText(f"{len(self._missed)} missed quest{'' if len(self._missed) == 1 else 's'} requiring review.")
+            notice.setText(f"{len(self._missed)} missed task{'' if len(self._missed) == 1 else 's'} requiring review.")
         notice.setFont(theme.body_font(10))
         notice.setStyleSheet(f"color: {config.TEXT_DIM}; background: transparent;")
         root.addWidget(notice)
@@ -80,9 +80,9 @@ class BacklogWindow(QWidget):
         self._list = QListWidget(self)
         self._list.setStyleSheet(theme.scrollbar_qss())
         self._list.setFont(theme.body_font(12))
-        for quest in self._missed:
+        for item in self._missed:
             self._list.addItem(
-                f"{quest.scheduled_time}  │  {quest.task.description}      (late {quest.lateness})"
+                f"{item.scheduled_time}  │  {item.task.description}      (late {item.lateness})"
             )
         root.addWidget(self._list, stretch=1)
 
@@ -90,7 +90,7 @@ class BacklogWindow(QWidget):
         footer = QHBoxLayout()
 
         reset_btn = QPushButton("RESET PENALTY  (hold 1.5s)", self)
-        reset_btn.setStyleSheet(theme.button_qss(config.TEXT_DIM, "rgba(255, 56, 96, 30)"))
+        reset_btn.setStyleSheet(theme.button_qss(config.TEXT_DIM, "rgba(230, 230, 230, 30)"))
         reset_btn.setMinimumHeight(36)
         reset_btn.pressed.connect(self._arm_reset)
         reset_btn.released.connect(self._disarm_reset)
@@ -101,13 +101,13 @@ class BacklogWindow(QWidget):
         self._reset_timer.timeout.connect(self._do_reset)
 
         accept_btn = QPushButton("ACCEPT & CONTINUE", self)
-        accept_btn.setStyleSheet(theme.button_qss(config.PURPLE_GLOW, "rgba(155, 81, 224, 40)"))
+        accept_btn.setStyleSheet(theme.button_qss(config.PURPLE_GLOW, "rgba(200, 200, 200, 40)"))
         accept_btn.setMinimumHeight(36)
         accept_btn.setMinimumWidth(220)
         accept_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         accept_btn.clicked.connect(self._accept)
 
-        hint = QLabel("Failing a gate is recorded once.", self)
+        hint = QLabel("A missed task is recorded once.", self)
         hint.setFont(theme.body_font(9))
         hint.setStyleSheet(f"color: {config.TEXT_DIM}; background: transparent;")
         footer.addWidget(reset_btn)
@@ -122,9 +122,9 @@ class BacklogWindow(QWidget):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         rect = self.rect().adjusted(1, 1, -1, -1)
         gradient = QLinearGradient(0, 0, 0, rect.height())
-        gradient.setColorAt(0.0, QColor(24, 14, 40, 242))
-        gradient.setColorAt(0.6, QColor(14, 9, 24, 232))
-        gradient.setColorAt(1.0, QColor(10, 6, 18, 242))
+        gradient.setColorAt(0.0, QColor(38, 38, 38, 242))
+        gradient.setColorAt(0.6, QColor(22, 22, 22, 232))
+        gradient.setColorAt(1.0, QColor(16, 16, 16, 242))
         painter.setBrush(gradient)
         painter.setPen(QPen(QColor(config.PURPLE_GLOW), 1))
         painter.drawRoundedRect(rect, 16, 16)
@@ -156,7 +156,7 @@ class BacklogWindow(QWidget):
 
     def set_penalty_count(self, count: int) -> None:
         self._penalty_count = count
-        self._penalty_label.setText(f"PENALTY GATE  {count}")
+        self._penalty_label.setText(f"MISSED TASKS  {len(self._missed)}   ·   PENALTY  {count}")
 
     def mousePressEvent(self, event) -> None:  # noqa: N802 (Qt naming)
         super().mousePressEvent(event)
@@ -168,5 +168,5 @@ class BacklogWindow(QWidget):
             super().keyPressEvent(event)
 
     def closeEvent(self, event) -> None:  # noqa: N802 (Qt naming)
-        log.debug("Backlog closed with %d quests shown", len(self._missed))
+        log.debug("Backlog closed with %d tasks shown", len(self._missed))
         super().closeEvent(event)

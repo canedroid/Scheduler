@@ -1,4 +1,4 @@
-"""Theme helpers for the Solo Leveling HUD: dark glass, purple glow, HUD fonts."""
+"""Theme helpers for the monochrome HUD: dark gray glass, white accent, HUD fonts."""
 from __future__ import annotations
 
 from PyQt6.QtGui import QColor, QFont, QFontDatabase
@@ -54,7 +54,7 @@ def button_qss(outline: str, hover: str, text: str = config.TEXT, padding: str =
     return f"""
     QPushButton {{
         color: {text};
-        background-color: rgba(18, 12, 28, 90);
+        background-color: rgba(28, 28, 28, 90);
         border: 1px solid {outline};
         border-radius: 9px;
         padding: {padding};
@@ -68,7 +68,7 @@ def button_qss(outline: str, hover: str, text: str = config.TEXT, padding: str =
         border-color: {config.PURPLE_GLOW};
     }}
     QPushButton:pressed {{
-        background-color: rgba(155, 81, 224, 60);
+        background-color: rgba(200, 200, 200, 60);
     }}
     """
 
@@ -77,21 +77,21 @@ def scrollbar_qss() -> str:
     return f"""
     QListWidget {{
         background: transparent;
-        border: 1px solid rgba(155, 81, 224, 90);
+        border: 1px solid rgba(200, 200, 200, 90);
         border-radius: 10px;
         outline: none;
     }}
     QListWidget::item {{
         color: {config.TEXT};
-        border-bottom: 1px solid rgba(155, 81, 224, 40);
+        border-bottom: 1px solid rgba(200, 200, 200, 40);
         padding: 8px;
     }}
     QListWidget::item:selected {{
-        background-color: rgba(155, 81, 224, 70);
+        background-color: rgba(220, 220, 220, 70);
         color: {config.TEXT};
     }}
     QScrollBar:vertical {{
-        background: rgba(18, 12, 28, 120);
+        background: rgba(18, 18, 18, 120);
         width: 8px;
         margin: 4px 2px;
     }}

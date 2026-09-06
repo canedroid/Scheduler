@@ -1,10 +1,10 @@
 # Project Scheduler
 
-A zero-cost, local, Solo Leveling themed schedule monitor. Reads timestamped
+A zero-cost, local, monochrome schedule monitor. Reads timestamped
 tasks from plain Markdown in an **Obsidian-compatible vault**, then fires a
-frameless, transparent dark-glass popup with glowing purple borders the moment a
+frameless, transparent dark-glass popup with glowing gray borders the moment a
 task's minute arrives. Missed schedules are caught up at boot as a
-**PENALTY GATE** backlog.
+**SCHEDULER** review backlog.
 
 ## File format
 
@@ -35,7 +35,7 @@ py -3 main.py
 ```
 
 or double-click `run_scheduler.bat`. Nothing is shown until an alert fires — the
-app sits quietly in the system tray (purple `◈` icon, right-click for the menu),
+app sits quietly in the system tray (gray `◈` icon, right-click for the menu),
 polling every 10 s. A sample vault ships with a demo past-due task so you see the
 backlog on first boot.
 
@@ -51,17 +51,19 @@ backlog on first boot.
 
 ## Adding schedules — two ways
 
-### 1. Gate Planner window (recommended for daily use)
+### 1. Scheduler panel (recommended for daily use)
 
-Right-click the tray icon → **▣ Gate Planner** (or left-click the tray icon, or
+Right-click the tray icon → **▣ SCHEDULER** (or left-click the tray icon, or
 launch with `py -3 main.py --planner`). The planner is a frameless HUD panel
 matching the popup aesthetic:
 
-- Pick a **DAY**, type a **time** + **description**, hit **ADD GATE** — it
+- Pick a **DAY**, type a **time** + **description**, hit **ADD TASK** — it
   writes `- [ ] HH:MM | description` into the right `YYYY-MM-DD.md` (creating the
   file if needed).
-- Existing gates for that day are listed below with inline controls: edit the
+- Existing tasks for that day are listed below with inline controls: edit the
   time to reschedule, **✓** to mark complete, **✕** to delete.
+- Completed tasks are hidden automatically; when every task for a day is done the
+  panel shows the cleared message.
 - Every write is line-anchored and re-read afterwards, so edits made in Obsidian
   are never clobbered.
 
@@ -77,9 +79,9 @@ notepad D:\randombullshitgoburr\Scheduler\vault\2026-09-06.md
 | ------------------------------------------------- | ------------------------------------------------- |
 | Clock reaches `- [ ] HH:MM`                       | Floating popup (Complete / Snooze +5/+15/+30 / Dismiss) |
 | Task is 0–15 min late                             | Live **LATE** popup                               |
-| Task is >15 min late (app was off)                | Captured by boot-time **MISSED QUESTS** backlog   |
+| Task is >15 min late (app was off)                | Captured by boot-time **MISSED TASKS** backlog   |
 | Popup is completed/dismissed/snoozed              | Markdown rewritten in place (line-anchored, conflict-safe) |
-| Missed quest accepted            | `penalty_count` +1 (persistent, manual hold-to-reset) |
+| Missed task accepted            | `penalty_count` +1 (persistent, manual hold-to-reset) |
 
 The popup never steals focus (pure toast). Opt into alert behavior with
 `"force_focus": true` in `scheduler_state.json`.
@@ -108,8 +110,8 @@ scheduler/init_check.py  boot-time missed-schedule scan + classification
 scheduler/state.py       JSON cache (penalties, fired hashes, prefs)
 scheduler/watcher.py     polling QThread -> live popup events
 scheduler/ui/popup.py    frameless transparent notification
-scheduler/ui/backlog.py  MISSED QUESTS review window
-scheduler/ui/planner.py  Gate Planner panel (add / reschedule / complete / delete)
+scheduler/ui/backlog.py  MISSED TASKS review window
+scheduler/ui/planner.py  SCHEDULER panel (add / reschedule / complete / delete)
 scheduler/ui/tray.py     system tray icon + menu
 vault/                   sample markdown vault
 scripts/                 login task + cue-wav generator

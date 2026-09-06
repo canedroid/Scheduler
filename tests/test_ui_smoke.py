@@ -3,7 +3,7 @@ from datetime import date, time, datetime
 
 import pytest
 
-from scheduler.models import Task, MissedQuest
+from scheduler.models import Task, MissedTask
 from scheduler.watcher import find_due_tasks
 
 
@@ -91,7 +91,7 @@ def test_backlog_builds_and_accepts():
     app = _app()
     from scheduler.ui.backlog import BacklogWindow
 
-    missed = [MissedQuest(task=_task("Dead end"), seconds_late=3600 + 900)]
+    missed = [MissedTask(task=_task("Dead end"), seconds_late=3600 + 900)]
     backlog = BacklogWindow(missed, penalty_count=3, initial=True)
     backlog.show()
     captured = []

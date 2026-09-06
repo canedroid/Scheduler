@@ -18,7 +18,7 @@ log = logging.getLogger(__name__)
 
 
 def make_icon() -> QIcon:
-    """Runtime-drawn tray icon: purple rounded plate with the '◈' gate glyph."""
+    """Runtime-drawn tray icon: gray rounded plate with the '◈' glyph."""
     pixmap = QPixmap(64, 64)
     pixmap.fill(Qt.GlobalColor.transparent)
     painter = QPainter(pixmap)
@@ -42,20 +42,20 @@ class SchedulerTray:
 
     def __init__(self, on_planner, on_backlog, on_quit):
         self._tray = QSystemTrayIcon(make_icon())
-        self._tray.setToolTip("Project Scheduler — checkpoint monitor online")
+        self._tray.setToolTip("SCHEDULER — task monitor online")
 
         menu = QMenu()
         menu.setStyleSheet(
             f"QMenu {{ background-color: {config.BG_GLASS_STRONG}; color: {config.TEXT};"
             f" border: 1px solid {config.PURPLE}; border-radius: 8px; padding: 4px; }}"
             f"QMenu::item {{ padding: 6px 20px; }}"
-            f"QMenu::item:selected {{ background-color: rgba(155, 81, 224, 70); }}"
-            f"QMenu::separator {{ height: 1px; background: rgba(155, 81, 224, 90); margin: 4px 6px; }}"
+            f"QMenu::item:selected {{ background-color: rgba(220, 220, 220, 70); }}"
+            f"QMenu::separator {{ height: 1px; background: rgba(220, 220, 220, 90); margin: 4px 6px; }}"
         )
 
-        planner_action = QAction("▣  Gate Planner", menu)
+        planner_action = QAction("▣  SCHEDULER", menu)
         planner_action.triggered.connect(lambda: on_planner())
-        backlog_action = QAction("⚠  Missed Quests", menu)
+        backlog_action = QAction("⚠  Missed Tasks", menu)
         backlog_action.triggered.connect(lambda: on_backlog())
         menu.addSeparator()
         quit_action = QAction("✕  Quit", menu)

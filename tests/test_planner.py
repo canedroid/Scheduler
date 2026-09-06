@@ -36,7 +36,7 @@ def test_planner_add_gate_writes_file(today_vault):
     assert content.startswith("# 2026-10-05\n")
     assert "- [ ] 23:59 | Launch sequence\n" in content
     assert planner._status_label.isVisible()
-    assert "GATE ADDED" in planner._status_label.text()
+    assert "TASK ADDED" in planner._status_label.text()
     planner.close()
 
 
@@ -108,7 +108,7 @@ def test_planner_cleared_message_when_all_done(today_vault):
     planner._date_edit.setDate(QDate(2026, 9, 6))
     assert planner._tasks == []
     assert planner._section_label.text().endswith("(0)")
-    assert "cleared" in planner._rows_layout.itemAt(0).widget().text().lower()
+    assert "completed" in planner._rows_layout.itemAt(0).widget().text().lower()
     planner.close()
 
 

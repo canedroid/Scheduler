@@ -46,18 +46,18 @@ def is_dated_filename(path: Path) -> bool:
 
 
 # --------------------------------------------------------------------------- #
-# Theme (Solo Leveling HUD — dark glass + purple glow)                         #
+# Theme (monochrome HUD — white, black, and shades of gray)                     #
 # --------------------------------------------------------------------------- #
-PURPLE = "#9b51e0"
-PURPLE_SOFT = "#6f2dbd"
-PURPLE_GLOW = "#c77dff"
-BG_GLASS = "#120c1c"
-BG_GLASS_STRONG = "#1c122c"
-TEXT = "#eae6ff"
-TEXT_DIM = "#9c93b5"
-DANGER = "#ff3860"
-SUCCESS = "#5ff2a0"
-WARNING = "#ffd166"
+PURPLE = "#c9c9c9"
+PURPLE_SOFT = "#3b3b3b"
+PURPLE_GLOW = "#ececec"
+BG_GLASS = "#0e0e0e"
+BG_GLASS_STRONG = "#1c1c1c"
+TEXT = "#f5f5f5"
+TEXT_DIM = "#a8a8a8"
+DANGER = "#e0e0e0"
+SUCCESS = "#9a9a9a"
+WARNING = "#c0c0c0"
 
 FONT_FAMILY = "Segoe UI"
 FONT_FAMILY_HEADER = "Bahnschrift"

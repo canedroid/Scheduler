@@ -2,11 +2,11 @@
 
 Boot sequence (addendum sections 5 & 7):
   1. Load persistent state.
-  2. Scan the vault for unchecked past tasks -> MISSED QUESTS backlog.
+  2. Scan the vault for unchecked past tasks -> MISSED TASKS backlog.
   3. Start the polling watcher; live fire popups when the wall clock hits a
      task's minute (0–15 min grace = LATE popup).
-  4. Sit quietly in the system tray (Gate Planner / Missed Quests / Quit).
-     `--planner` opens the Gate Planner on launch.
+  4. Sit quietly in the system tray (SCHEDULER / Missed Tasks / Quit).
+     `--planner` opens the SCHEDULER panel on launch.
 """
 from __future__ import annotations
 
@@ -74,7 +74,7 @@ def run(argv: list[str] | None = None) -> int:
         state.mark_fired(key)
         popup = SystemPopup(task, late=payload["late"], force_focus=state.force_focus)
         popup.completed.connect(on_popup_completed)
-        popup.dismissed.connect(on_popup_completed)   # dismiss settles the quest
+        popup.dismissed.connect(on_popup_completed)   # dismiss settles the task
         popup.snoozed.connect(on_popup_snoozed)
         popups.add(popup)
         popup.destroyed.connect(lambda _obj, p=popup: popups.discard(p))
@@ -123,8 +123,8 @@ def run(argv: list[str] | None = None) -> int:
 
 
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(prog="scheduler", description="Solo Leveling themed markdown gate monitor")
-    parser.add_argument("--planner", action="store_true", help="Open the Gate Planner window on launch")
+    parser = argparse.ArgumentParser(prog="scheduler", description="Monochrome markdown task monitor")
+    parser.add_argument("--planner", action="store_true", help="Open the SCHEDULER panel window on launch")
     args, _unknown = parser.parse_known_args(argv[1:] if argv is not None else None)
     return args
 

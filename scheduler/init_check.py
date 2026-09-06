@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from scheduler.markdown_parser import read_all_tasks
-from scheduler.models import MissedQuest
+from scheduler.models import MissedTask
 from scheduler.config import GRACE_MINUTES
 
 UPCOMING = "upcoming"
@@ -46,20 +46,20 @@ def aggregate_missed(
     vault: Path,
     now: datetime | None = None,
     grace_minutes: int = GRACE_MINUTES,
-) -> list[MissedQuest]:
+) -> list[MissedTask]:
     """Collect every unchecked task left in the past, oldest first.
 
-    Returns a chronological list of MissedQuest entries the backlog screen can
-    present as a "PENALTY GATE" review.
+    Returns a chronological list of MissedTask entries the backlog screen can
+    present as a "SCHEDULER" review.
     """
     now = now or datetime.now()
-    missed: list[MissedQuest] = []
+    missed: list[MissedTask] = []
     for task in read_all_tasks(vault):
         if task.done:
             continue
         bucket = classify(task, now, grace_minutes)
         if bucket in (LATE, MISSED):
             seconds_late = int((now - task.scheduled).total_seconds())
-            missed.append(MissedQuest(task=task, seconds_late=seconds_late))
-    missed.sort(key=lambda q: (q.task.scheduled, q.task.line_no))
+            missed.append(MissedTask(task=task, seconds_late=seconds_late))
+    missed.sort(key=lambda m: (m.task.scheduled, m.task.line_no))
     return missed

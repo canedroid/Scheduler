@@ -9,7 +9,7 @@ from scheduler.init_check import (
     classify,
     should_live_fire,
 )
-from scheduler.models import Task, MissedQuest
+from scheduler.models import Task, MissedTask
 
 
 def _make_task(day, hh_mm, desc="- [ ] 07:00 | X", done=False):
@@ -100,4 +100,4 @@ def test_aggregate_recurses_into_nested(today_vault):
     _write(today_vault, "projects/notes.md", "- [ ] 08:00 | Not date-named\n")
     missed = aggregate_missed(today_vault, now)
     assert [q.task.description for q in missed] == ["Nested miss"]
-    assert isinstance(missed[0], MissedQuest)
+    assert isinstance(missed[0], MissedTask)

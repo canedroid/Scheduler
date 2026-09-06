@@ -1,8 +1,8 @@
-"""The Gate Planner: frameless HUD-styled panel for adding and managing tasks.
+"""The Scheduler panel: frameless HUD-styled panel for adding and managing tasks.
 
 Add tasks for any day (creates/updates the YYYY-MM-DD.md file), or manage the
-day's existing gates: edit the time inline, mark a gate complete, or delete a
-gate. Every action flows through the line-anchored parser and re-reads the file
+day's existing tasks: edit the time inline, mark a task complete, or delete a
+task. Every action flows through the line-anchored parser and re-reads the file
 afterwards, so external Obsidian edits are always respected.
 """
 from __future__ import annotations
@@ -38,7 +38,7 @@ STATUS_MS = 2600
 
 
 class GatePlanner(QWidget):
-    """Full control panel for a day's gates (add / reschedule / complete / delete)."""
+    """Full control panel for a day's tasks (add / reschedule / complete / delete)."""
 
     tasks_changed = pyqtSignal()  # so the host can resync (e.g. backlog titles)
 
@@ -67,7 +67,7 @@ class GatePlanner(QWidget):
 
         # header -------------------------------------------------------------
         header = QHBoxLayout()
-        title = QLabel("GATE PLANNER", self)
+        title = QLabel("SCHEDULER", self)
         title.setFont(theme.header_font(17))
         title.setStyleSheet(f"color: {config.PURPLE_GLOW}; background: transparent;")
         title.setGraphicsEffect(theme.glow(title, config.PURPLE, blur=20, alpha=210))
@@ -107,12 +107,12 @@ class GatePlanner(QWidget):
         self._time_edit.setStyleSheet(_input_qss())
 
         self._desc_edit = QLineEdit(self)
-        self._desc_edit.setPlaceholderText("What does the gate require?")
+        self._desc_edit.setPlaceholderText("What does the task require?")
         self._desc_edit.setStyleSheet(_input_qss())
         self._desc_edit.returnPressed.connect(self._add_task)
 
-        add_btn = QPushButton("ADD GATE", self)
-        add_btn.setStyleSheet(theme.button_qss(config.PURPLE_GLOW, "rgba(155, 81, 224, 40)"))
+        add_btn = QPushButton("ADD TASK", self)
+        add_btn.setStyleSheet(theme.button_qss(config.PURPLE_GLOW, "rgba(200, 200, 200, 40)"))
         add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         add_btn.clicked.connect(self._add_task)
 
@@ -161,9 +161,9 @@ class GatePlanner(QWidget):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         rect = self.rect().adjusted(1, 1, -1, -1)
         gradient = QLinearGradient(0, 0, 0, rect.height())
-        gradient.setColorAt(0.0, QColor(24, 14, 40, 244))
-        gradient.setColorAt(0.6, QColor(14, 9, 24, 234))
-        gradient.setColorAt(1.0, QColor(10, 6, 18, 244))
+        gradient.setColorAt(0.0, QColor(38, 38, 38, 244))
+        gradient.setColorAt(0.6, QColor(22, 22, 22, 234))
+        gradient.setColorAt(1.0, QColor(16, 16, 16, 244))
         painter.setBrush(gradient)
         painter.setPen(QPen(QColor(config.PURPLE_GLOW), 1))
         painter.drawRoundedRect(rect, 16, 16)
@@ -180,17 +180,17 @@ class GatePlanner(QWidget):
     def _add_task(self) -> None:
         description = self._desc_edit.text().strip()
         if not description:
-            self._set_status("A gate needs a description.", is_error=True)
+            self._set_status("A task needs a description.", is_error=True)
             return
         task_time = self._time_edit.time().toPyTime()
         if add_task(self._vault, self._current_day(), task_time, description):
             self._desc_edit.clear()
             self._desc_edit.setFocus()
-            self._set_status(f"GATE ADDED  {task_time:%H:%M}  —  {description}", is_error=False)
+            self._set_status(f"TASK ADDED  {task_time:%H:%M}  —  {description}", is_error=False)
             self._refresh()
             self.tasks_changed.emit()
         else:
-            self._set_status("Could not write the gate file. Check permissions.", is_error=True)
+            self._set_status("Could not write the task file. Check permissions.", is_error=True)
 
     def _apply_reschedule(self, task: Task, edit: QTimeEdit) -> None:
         new_time = edit.time().toPyTime()
@@ -205,13 +205,13 @@ class GatePlanner(QWidget):
 
     def _task_done(self, task: Task) -> None:
         if complete_task(self._vault, task):
-            self._set_status(f"GATE CLEARED  |  {task.description}", is_error=False)
+            self._set_status(f"TASK COMPLETED  |  {task.description}", is_error=False)
             self._refresh()
             self.tasks_changed.emit()
 
     def _task_delete(self, task: Task) -> None:
         if delete_task(self._vault, task):
-            self._set_status(f"GATE REMOVED  |  {task.description}", is_error=False)
+            self._set_status(f"TASK DELETED  |  {task.description}", is_error=False)
             self._refresh()
             self.tasks_changed.emit()
 
@@ -224,9 +224,9 @@ class GatePlanner(QWidget):
         self._section_label.setText(f"TASKS · {config.task_filename(day)}  ({len(self._tasks)})")
         if not self._tasks:
             if done_count:
-                msg = f"All {done_count} gate{'s' if done_count != 1 else ''} cleared for this day."
+                msg = f"All {done_count} task{'s' if done_count != 1 else ''} completed for this day."
             else:
-                msg = "No gates for this day yet — add one above."
+                msg = "No tasks for this day yet — add one above."
             empty = QLabel(msg, self._rows_host)
             empty.setStyleSheet(f"color: {config.TEXT_DIM}; background: transparent; padding: 12px;")
             self._rows_layout.addWidget(empty)
@@ -244,7 +244,7 @@ class GatePlanner(QWidget):
 
     def _make_row(self, task: Task) -> QWidget:
         row = QWidget(self._rows_host)
-        row.setStyleSheet("background: rgba(155, 81, 224, 14); border-radius: 8px;")
+        row.setStyleSheet("background: rgba(200, 200, 200, 14); border-radius: 8px;")
         layout = QHBoxLayout(row)
         layout.setContentsMargins(10, 8, 10, 8)
         layout.setSpacing(8)
@@ -252,7 +252,7 @@ class GatePlanner(QWidget):
         time_edit = QTimeEdit(task.time, row)
         time_edit.setDisplayFormat("HH:mm")
         time_edit.setStyleSheet(
-            f"QTimeEdit {{ color: {config.PURPLE_GLOW}; background: rgba(18, 12, 28, 160);"
+            f"QTimeEdit {{ color: {config.PURPLE_GLOW}; background: rgba(28, 28, 28, 160);"
             f" border: 1px solid {config.PURPLE}; border-radius: 6px; padding: 3px 6px; }}"
         )
         time_edit.editingFinished.connect(lambda t=task, e=time_edit: self._apply_reschedule(t, e))
@@ -269,16 +269,16 @@ class GatePlanner(QWidget):
         done_btn.setStyleSheet(
             f"QPushButton {{ color: {config.SUCCESS}; background: transparent; border: 1px solid {config.SUCCESS};"
             f" border-radius: 6px; padding: 4px 8px; }}"
-            f"QPushButton:hover {{ background: rgba(95, 242, 160, 25); }}"
+            f"QPushButton:hover {{ background: rgba(200, 200, 200, 25); }}"
         )
         done_btn.clicked.connect(lambda t=task: self._task_done(t))
 
         del_btn = QPushButton("✕", row)
-        del_btn.setToolTip("Delete gate")
+        del_btn.setToolTip("Delete task")
         del_btn.setStyleSheet(
-            f"QPushButton {{ color: {config.DANGER}; background: transparent; border: 1px solid rgba(255, 56, 96, 120);"
+            f"QPushButton {{ color: {config.DANGER}; background: transparent; border: 1px solid rgba(230, 230, 230, 120);"
             f" border-radius: 6px; padding: 4px 8px; }}"
-            f"QPushButton:hover {{ background: rgba(255, 56, 96, 30); }}"
+            f"QPushButton:hover {{ background: rgba(230, 230, 230, 30); }}"
         )
         del_btn.clicked.connect(lambda t=task: self._task_delete(t))
 
@@ -323,8 +323,8 @@ class GatePlanner(QWidget):
 def _input_qss() -> str:
     return (
         f"QLineEdit, QDateEdit, QTimeEdit {{"
-        f" color: {config.TEXT}; background: rgba(18, 12, 28, 140);"
-        f" border: 1px solid rgba(155, 81, 224, 160); border-radius: 8px; padding: 6px 10px; }}"
+        f" color: {config.TEXT}; background: rgba(28, 28, 28, 140);"
+        f" border: 1px solid rgba(220, 220, 220, 160); border-radius: 8px; padding: 6px 10px; }}"
         f"QLineEdit:focus, QDateEdit:focus, QTimeEdit:focus {{ border: 1px solid {config.PURPLE_GLOW}; }}"
         f"QDateEdit::drop-down, QTimeEdit::drop-down {{ border: none; }}"
         f"QDateEdit::down-arrow {{ image: none; width: 0; }}"

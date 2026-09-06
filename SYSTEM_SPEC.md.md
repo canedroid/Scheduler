@@ -1,11 +1,11 @@
 System Blueprint: Project "Scheduler"
 1. Why I Want This (The Core Motivation)
-Traditional productivity apps and digital calendars are uninspiring, sterile, and easily ignored. They lack psychological friction and urgency. This project is built to merge an intense, gamified Solo Leveling aesthetic (dark, glowing holographic purple UI, stark warning boxes, and system prompts) with raw, zero-cost, local productivity. By using a Markdown-based storage system (compatible with Obsidian) paired with a custom-built desktop interface, it ensures total data privacy, portability, and zero subscription costs while turning daily scheduling into an immersive system boot-up.
+Traditional productivity apps and digital calendars are uninspiring, sterile, and easily ignored. They lack psychological friction and urgency. This project is built to merge an intense, gamified monochrome aesthetic (dark glass, white accents, stark warning boxes, and system prompts) with raw, zero-cost, local productivity. By using a Markdown-based storage system (compatible with Obsidian) paired with a custom-built desktop interface, it ensures total data privacy, portability, and zero subscription costs while turning daily scheduling into an immersive system boot-up.
 
 2. What It Will Do (Core Functionality)
 Markdown Integration: Reads, parses, and writes to local Markdown files containing timestamped tasks and schedules.
 
-The System Pop-Up: Triggers an immersive, floating, frameless dark-glass window with glowing purple borders (#9b51e0) and warning icons right when a scheduled event's timestamp is hit.
+The System Pop-Up: Triggers an immersive, floating, frameless dark-glass window with glowing gray borders and warning icons right when a scheduled event's timestamp is hit.
 
 Missed Schedule Catch-Up: Automatically detects uncompleted tasks from past timestamps upon app boot-up, flagging them as a "Penalty/Missed Gate" and presenting them in a backlog review screen.
 
@@ -41,7 +41,7 @@ Notification & Alert Logic:
 
 When Current Time == Task Timestamp, a background thread triggers the main GUI thread to render the popup notification over other windows.
 
-If the app was closed during a timestamp, the startup initialization script scans all files for unchecked past timestamps and aggregates them into a "Missed Quests" summary window.
+If the app was closed during a timestamp, the startup initialization script scans all files for unchecked past timestamps and aggregates them into a "Missed Tasks" summary window.
 
 ---
 
@@ -107,4 +107,4 @@ Canonical schedule syntax per task line: `- [ ] HH:MM | Task description`.
 - Persistent integer `penalty_count` in state, incremented by 1 for each missed task a
   user accepts in the backlog. Never auto-decrements. Reset is manual only, in the
   backlog header via a hold-to-confirm button.
-- Pure cosmetic friction (displayed as "PENALTY GATE  N") — never blocks or cancels work.
+- Pure cosmetic friction (displayed as the SCHEDULER panel's penalty counter) — never blocks or cancels work.

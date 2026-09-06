@@ -1,5 +1,5 @@
 """The floating system notification: frameless, translucent dark-glass card with
-a glowing purple border that mimics a system pop-up (addendum sections 4 & 6).
+a glowing gray border that mimics a system pop-up (addendum sections 4 & 6).
 
 Pure toast semantics by default: stays on top, never steals input focus, and
 auto-hides after 20 seconds. Clicking the glass (outside the buttons) dismisses
@@ -68,7 +68,7 @@ class SystemPopup(QWidget):
         icon = QLabel("◈", self)
         icon.setStyleSheet(f"color: {config.PURPLE_GLOW}; font-size: 22px; background: transparent;")
         title = QLabel(self)
-        title.setText("PENALTY GATE")
+        title.setText("SCHEDULER")
         title.setFont(theme.header_font(15))
         title.setStyleSheet(f"color: {config.PURPLE_GLOW}; background: transparent;")
         title.setGraphicsEffect(theme.glow(title, config.PURPLE, blur=18, alpha=200))
@@ -77,13 +77,13 @@ class SystemPopup(QWidget):
         if self._late:
             badge.setText("LATE")
             badge.setStyleSheet(
-                f"color: {config.DANGER}; background: rgba(255, 56, 96, 30);"
+                f"color: {config.TEXT}; background: rgba(230, 230, 230, 30);"
                 f"border: 1px solid {config.DANGER}; border-radius: 10px; padding: 1px 9px;"
             )
         else:
             badge.setText(self._task.scheduled.strftime("%H:%M"))
             badge.setStyleSheet(
-                f"color: {config.PURPLE_GLOW}; background: rgba(155, 81, 224, 40);"
+                f"color: {config.PURPLE_GLOW}; background: rgba(200, 200, 200, 40);"
                 f"border: 1px solid {config.PURPLE}; border-radius: 10px; padding: 1px 9px;"
             )
         badge.setFont(theme.body_font(11, bold=True))
@@ -104,7 +104,7 @@ class SystemPopup(QWidget):
 
         if self._late:
             note = QLabel(self)
-            note.setText("SCHEDULED — past the gate")
+            note.setText("SCHEDULED TIME PASSED")
             note.setFont(theme.body_font(9))
             note.setStyleSheet(f"color: {config.TEXT_DIM}; background: transparent;")
             root.addWidget(note)
@@ -116,15 +116,15 @@ class SystemPopup(QWidget):
         rows.setSpacing(8)
 
         complete_btn = QPushButton("COMPLETE", self)
-        complete_btn.setStyleSheet(theme.button_qss(config.SUCCESS, "rgba(95, 242, 160, 25)"))
+        complete_btn.setStyleSheet(theme.button_qss(config.SUCCESS, "rgba(200, 200, 200, 25)"))
         complete_btn.clicked.connect(self._complete)
 
         snooze_btn = QPushButton("SNOOZE", self)
-        snooze_btn.setStyleSheet(theme.button_qss(config.PURPLE, "rgba(155, 81, 224, 30)"))
+        snooze_btn.setStyleSheet(theme.button_qss(config.PURPLE, "rgba(200, 200, 200, 30)"))
         snooze_btn.clicked.connect(self._snooze_menu)
 
         dismiss_btn = QPushButton("DISMISS", self)
-        dismiss_btn.setStyleSheet(theme.button_qss(config.TEXT_DIM, "rgba(156, 147, 181, 25)"))
+        dismiss_btn.setStyleSheet(theme.button_qss(config.TEXT_DIM, "rgba(220, 220, 220, 25)"))
         dismiss_btn.clicked.connect(self.dismiss)
 
         for button in (complete_btn, snooze_btn, dismiss_btn):
@@ -145,9 +145,9 @@ class SystemPopup(QWidget):
 
         rect = self.rect().adjusted(1, 1, -1, -1)
         gradient = QLinearGradient(0, 0, 0, rect.height())
-        gradient.setColorAt(0.0, QColor(24, 14, 40, 235))
-        gradient.setColorAt(0.7, QColor(14, 9, 24, 222))
-        gradient.setColorAt(1.0, QColor(10, 6, 18, 235))
+        gradient.setColorAt(0.0, QColor(38, 38, 38, 235))
+        gradient.setColorAt(0.7, QColor(22, 22, 22, 222))
+        gradient.setColorAt(1.0, QColor(16, 16, 16, 235))
         painter.setBrush(gradient)
         painter.setPen(QPen(QColor(config.PURPLE_GLOW), 1, cap=Qt.PenCapStyle.SquareCap))
         painter.drawRoundedRect(rect, 14, 14)
@@ -206,7 +206,7 @@ class SystemPopup(QWidget):
             f"QMenu {{ background-color: {config.BG_GLASS_STRONG}; color: {config.TEXT};"
             f" border: 1px solid {config.PURPLE}; border-radius: 8px; padding: 4px; }}"
             f"QMenu::item {{ padding: 6px 18px; }}"
-            f"QMenu::item:selected {{ background-color: rgba(155, 81, 224, 70); }}"
+            f"QMenu::item:selected {{ background-color: rgba(220, 220, 220, 70); }}"
         )
         for minutes in config.SNOOZE_OPTIONS_MIN:
             action = menu.addAction(f"Snooze +{minutes} min")

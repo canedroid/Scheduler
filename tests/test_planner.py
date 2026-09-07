@@ -84,6 +84,58 @@ def test_planner_delete_existing_task(today_vault):
     planner.close()
 
 
+def test_planner_edit_time_then_delete_row(today_vault):
+    from PyQt6.QtWidgets import QPushButton, QTimeEdit
+
+    from scheduler.ui.planner import GatePlanner
+
+    app = _app()
+    _write(today_vault, "2026-09-06.md", "- [ ] 08:00 | Move & remove\n- [ ] 09:00 | Keep me\n")
+    planner = GatePlanner(today_vault)
+    planner.show_centered()
+    planner._date_edit.setDate(QDate(2026, 9, 6))
+    # find the row for the 08:00 task
+    te = [w for w in planner.findChildren(QTimeEdit) if w.time().toString("HH:mm") == "08:00"][0]
+    row = te.parentWidget()
+    x_btn = [w for w in row.findChildren(QPushButton) if w.toolTip() == "Delete task"][0]
+    # user edits the time (reschedule pending), then clicks X before leaving the row
+    te.setTime(QTime(20, 0))
+    te.editingFinished.emit()  # fires the row's lambda with ITS OWN task object
+    x_btn.click()
+    planner.card._refresh_timer.stop()  # cancel any deferred rebuild noise
+    content = (today_vault / "2026-09-06.md").read_text(encoding="utf-8")
+    assert "Move & remove" not in content
+    assert "- [ ] 09:00 | Keep me\n" in content
+    planner.close()
+
+
+def test_planner_x_after_focus_change_not_clobbered(today_vault):
+    """The row must survive an editingFinished-triggered refresh, so a real
+    mouse click on ✕ still lands after the user edited that row's time."""
+    from PyQt6.QtWidgets import QPushButton, QTimeEdit
+
+    from scheduler.ui.planner import GatePlanner
+
+    app = _app()
+    _write(today_vault, "2026-09-06.md", "- [ ] 08:00 | Focus change\n- [ ] 09:00 | Keep me\n")
+    planner = GatePlanner(today_vault)
+    planner.show_centered()
+    planner._date_edit.setDate(QDate(2026, 9, 6))
+    te = [w for w in planner.findChildren(QTimeEdit) if w.time().toString("HH:mm") == "08:00"][0]
+    te.setFocus()
+    te.setTime(QTime(20, 0))
+    # moving focus fires editingFinished -> _apply_reschedule -> (deferred) refresh
+    te.clearFocus()
+    planner.card._refresh_timer.stop()  # editingFinished path schedules, not rebuilds
+    row = te.parentWidget()
+    x_btn = [w for w in row.findChildren(QPushButton) if w.toolTip() == "Delete task"][0]
+    x_btn.click()
+    planner.card._refresh_timer.stop()
+    content = (today_vault / "2026-09-06.md").read_text(encoding="utf-8")
+    assert "Focus change" not in content
+    planner.close()
+
+
 def test_planner_hides_done_tasks(today_vault):
     from scheduler.ui.planner import GatePlanner
 

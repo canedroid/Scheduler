@@ -134,6 +134,16 @@ def test_snooze_rewrites_time_and_normalizes(vault):
     assert "- [ ] 09:20 | Early train\n" in content  # normalized to HH:MM
     assert "- [ ] 11:00 | Untouched\n" in content
     assert early.time == time(9, 20)
+    assert early.source_line == "- [ ] 09:20 | Early train"
+
+
+def test_snooze_keeps_deletable_anchor(vault):
+    path = _write(vault, "2026-09-06.md", "- [ ] 9:05 | Early train\n")
+    tasks = read_tasks(vault, date(2026, 9, 6))
+    early = tasks[0]
+    assert snooze_task(vault, early, 15) is True
+    assert delete_task(vault, early) is True
+    assert "Early train" not in path.read_text(encoding="utf-8")
 
 
 def test_snooze_with_pipe_preserves_description(vault):
@@ -208,3 +218,15 @@ def test_reschedule_task_explicit_time(vault):
     assert "- [ ] 18:30 | Task description\n" in content
     assert "- [ ] 10:00 | Neighbor\n" in content
     assert target.time == time(18, 30)
+    assert target.source_line == "- [ ] 18:30 | Task description"
+
+
+def test_reschedule_then_delete_uses_fresh_anchor(vault):
+    path = _write(vault, "2026-09-06.md", "- [ ] 14:00 | Task description\n- [ ] 10:00 | Neighbor\n")
+    tasks = read_tasks(vault, date(2026, 9, 6))
+    target = next(t for t in tasks if t.description == "Task description")
+    assert reschedule_task(vault, target, time(18, 30)) is True
+    assert delete_task(vault, target) is True  # must match the rewritten line
+    content = path.read_text(encoding="utf-8")
+    assert "Task description" not in content
+    assert "- [ ] 10:00 | Neighbor\n" in content

@@ -23,6 +23,7 @@ from scheduler.markdown_parser import complete_task, snooze_task
 from scheduler.state import StateStore
 from scheduler.ui.backlog import BacklogWindow
 from scheduler.ui.calendar_window import CalendarWindow
+from scheduler.ui.history_window import HistoryWindow
 from scheduler.ui.planner import GatePlanner
 from scheduler.ui.popup import EventReminderPopup, SystemPopup
 from scheduler.ui.tray import SchedulerTray
@@ -60,6 +61,7 @@ def run(argv: list[str] | None = None) -> int:
     config.WINDOW_OPACITY = state.opacity  # restore the user's transparency setting
 
     popups: set[SystemPopup] = set()
+    active_backlogs: set[BacklogWindow] = set()
 
     # -- watch actions ------------------------------------------------------ #
     def on_popup_completed(task) -> None:
@@ -121,6 +123,13 @@ def run(argv: list[str] | None = None) -> int:
 
     calendar.set_opacity_sink(lambda opacity, s=state: setattr(s, "opacity", opacity))
 
+    # -- past schedules (tray "Past Schedules") ------------------------------- #
+    history = HistoryWindow(vault)
+
+    def open_history() -> None:
+        history.refresh()
+        history.show_centered()
+
     def day_to_planner(day) -> None:
         planner.select_day(day)
         planner.show_centered()
@@ -133,6 +142,8 @@ def run(argv: list[str] | None = None) -> int:
         if not missed:
             return
         backlog = BacklogWindow(missed, penalty_count=state.penalty_count, initial=initial)
+        active_backlogs.add(backlog)
+        backlog.destroyed.connect(lambda _obj, b=backlog: active_backlogs.discard(b))
         if initial:
             backlog.accepted.connect(lambda count, s=state: s.add_penalties(count) if count else None)
         backlog.reset.connect(state.reset_penalties)
@@ -144,7 +155,7 @@ def run(argv: list[str] | None = None) -> int:
         app.quit()
 
     # -- tray + boot ---------------------------------------------------------- #
-    tray = SchedulerTray(open_planner, open_calendar, lambda: open_backlog(initial=False), on_quit)
+    tray = SchedulerTray(open_planner, open_calendar, lambda: open_backlog(initial=False), on_quit, on_history=open_history)
     open_backlog(initial=True)
     watcher.start()
 

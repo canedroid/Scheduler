@@ -40,7 +40,7 @@ def make_icon() -> QIcon:
 class SchedulerTray:
     """Wraps QSystemTrayIcon with the planner / backlog / quit menu."""
 
-    def __init__(self, on_planner, on_calendar, on_backlog, on_quit):
+    def __init__(self, on_planner, on_calendar, on_backlog, on_quit, on_history=None):
         self._tray = QSystemTrayIcon(make_icon())
         self._tray.setToolTip("SCHEDULER — task monitor online")
 
@@ -59,6 +59,8 @@ class SchedulerTray:
         calendar_action.triggered.connect(lambda: on_calendar())
         backlog_action = QAction("⚠  Missed Tasks", menu)
         backlog_action.triggered.connect(lambda: on_backlog())
+        history_action = QAction("▥  Past Schedules", menu)
+        history_action.triggered.connect(lambda: on_history() if on_history else None)
         menu.addSeparator()
         quit_action = QAction("✕  Quit", menu)
         quit_action.triggered.connect(lambda: on_quit())
@@ -66,6 +68,7 @@ class SchedulerTray:
         menu.addAction(planner_action)
         menu.addAction(calendar_action)
         menu.addAction(backlog_action)
+        menu.addAction(history_action)
         menu.addAction(quit_action)
 
         self._tray.setContextMenu(menu)

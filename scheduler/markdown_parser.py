@@ -245,6 +245,7 @@ def snooze_task(vault: Path, task: Task, minutes: int) -> bool:
     replaced = _replace_anchored_line(task.source_file, task.source_line, new_line)
     if replaced:
         task.time = new_dt.time()
+        task.source_line = new_line
     return replaced
 
 
@@ -260,6 +261,7 @@ def reschedule_task(vault: Path, task: Task, new_time: time) -> bool:
     replaced = _replace_anchored_line(task.source_file, task.source_line, new_line)
     if replaced:
         task.time = new_time
+        task.source_line = new_line
     return replaced
 
 

@@ -63,6 +63,9 @@ class _PlannerCard(QWidget):
         self._status_timer = QTimer(self)
         self._status_timer.setSingleShot(True)
         self._status_timer.timeout.connect(self._clear_status)
+        self._refresh_timer = QTimer(self)
+        self._refresh_timer.setSingleShot(True)
+        self._refresh_timer.timeout.connect(self._refresh)
 
         self.setFixedSize(PLANNER_WIDTH, PLANNER_HEIGHT)
         self._build_ui()
@@ -283,10 +286,10 @@ class _PlannerCard(QWidget):
             return
         if reschedule_task(self._vault, task, new_time):
             self._set_status(f"MOVED → {new_time:%H:%M}  |  {task.description}", is_error=False)
-            self._refresh()
             self.tasks_changed.emit()
+            self._schedule_refresh()
         else:
-            self._refresh()  # anchor may have moved after an external edit
+            self._schedule_refresh()  # anchor may have moved after an external edit
 
     def _task_done(self, task: Task) -> None:
         if complete_task(self._vault, task):
@@ -311,6 +314,16 @@ class _PlannerCard(QWidget):
             self._set_status(f"EVENT DELETED  |  {event.title}", is_error=False)
             self._refresh()
             self.tasks_changed.emit()
+
+    def _schedule_refresh(self) -> None:
+        """Rebuild rows on the next event-loop turn.
+
+        `editingFinished` fires while the user is pressing ✕/✓ (focus leaves the
+        time edit), so an immediate `_refresh()` would `deleteLater()` the very
+        button being clicked. Deferring the rebuild lets the pending click land
+        first and avoids the row being torn down mid-interaction.
+        """
+        self._refresh_timer.start(0)
 
     def _refresh(self) -> None:
         day = self._current_day()
@@ -376,7 +389,7 @@ class _PlannerCard(QWidget):
             f" border-radius: 6px; padding: 4px 8px; }}"
             f"QPushButton:hover {{ background: rgba(200, 200, 200, 25); }}"
         )
-        done_btn.clicked.connect(lambda t=task: self._task_done(t))
+        done_btn.clicked.connect(lambda _checked=False, t=task: self._task_done(t))
 
         del_btn = QPushButton("✕", row)
         del_btn.setToolTip("Delete task")
@@ -385,7 +398,7 @@ class _PlannerCard(QWidget):
             f" border-radius: 6px; padding: 4px 8px; }}"
             f"QPushButton:hover {{ background: rgba(230, 230, 230, 30); }}"
         )
-        del_btn.clicked.connect(lambda t=task: self._task_delete(t))
+        del_btn.clicked.connect(lambda _checked=False, t=task: self._task_delete(t))
 
         layout.addWidget(time_edit)
         layout.addWidget(desc, stretch=1)
@@ -419,7 +432,7 @@ class _PlannerCard(QWidget):
             f" border-radius: 6px; padding: 4px 8px; }}"
             f"QPushButton:hover {{ background: rgba(200, 200, 200, 25); }}"
         )
-        done_btn.clicked.connect(lambda e=event: self._event_done(e))
+        done_btn.clicked.connect(lambda _checked=False, e=event: self._event_done(e))
 
         del_btn = QPushButton("✕", row)
         del_btn.setToolTip("Delete event")
@@ -428,7 +441,7 @@ class _PlannerCard(QWidget):
             f" border-radius: 6px; padding: 4px 8px; }}"
             f"QPushButton:hover {{ background: rgba(230, 230, 230, 30); }}"
         )
-        del_btn.clicked.connect(lambda e=event: self._event_delete(e))
+        del_btn.clicked.connect(lambda _checked=False, e=event: self._event_delete(e))
 
         layout.addWidget(glyph)
         layout.addWidget(title, stretch=1)

@@ -77,6 +77,9 @@ class StateStore:
         with self._lock:
             return task_hash in self._data["fired"]
 
+    def was_fired(self, task_hash: str) -> bool:
+        return self.has_fired(task_hash)
+
     def mark_fired(self, task_hash: str) -> None:
         with self._lock:
             if task_hash not in self._data["fired"]:

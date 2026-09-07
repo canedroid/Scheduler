@@ -17,6 +17,7 @@ from PyQt6.QtGui import (
     QColor,
     QCursor,
     QGuiApplication,
+    QLinearGradient,
     QPainter,
     QPen,
 )

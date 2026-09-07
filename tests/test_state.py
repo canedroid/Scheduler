@@ -24,3 +24,11 @@ def test_opacity_missing_defaults_safely(tmp_path):
     path.write_text('{"some_unknown": true}', encoding="utf-8")
     store = StateStore(path)
     assert store.opacity == 0.75
+
+
+def test_was_fired_aliases_has_fired(tmp_path):
+    store = StateStore(tmp_path / "state.json", defaults={"fired": []})
+    assert not store.was_fired("abc")
+    store.mark_fired("abc")
+    assert store.was_fired("abc")
+    assert store.has_fired("abc")

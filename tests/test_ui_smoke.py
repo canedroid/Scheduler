@@ -87,6 +87,48 @@ def test_popup_snooze_emits_minutes():
     assert captured == [(task, 15)]
 
 
+def test_popups_paint_without_crashing():
+    """Regression: the popup card's paintEvent must not raise (missing symbol
+    would escape the Qt paint virtual and fast-fail the whole app, 0xc0000409).
+
+    `grab()` forces an offscreen render, so a missing paint symbol is caught
+    here instead of taking down the process on first live show.
+    """
+    app = _app()
+    from datetime import datetime
+
+    from PyQt6.QtGui import QPixmap
+
+    from scheduler.models import Event
+    from scheduler.ui.popup import SystemPopup, EventReminderPopup
+
+    task = _task()
+    popup = SystemPopup(task, late=True)
+    popup.show()
+    frame = popup.card.grab()
+    assert isinstance(frame, QPixmap)
+    assert not frame.isNull()
+    popup.close()
+
+    event = Event(
+        start=datetime(2026, 9, 10, 9, 0),
+        end=datetime(2026, 9, 12, 18, 0),
+        title="Exams",
+        remind_min=None,
+        done=False,
+        source_file=None,
+        source_line="",
+        line_no=0,
+    )
+    reminder = EventReminderPopup(event)
+    reminder.show()
+    frame = reminder.card.grab()
+    assert isinstance(frame, QPixmap)
+    assert not frame.isNull()
+    reminder.close()
+    app.processEvents()
+
+
 def test_backlog_builds_and_accepts():
     app = _app()
     from scheduler.ui.backlog import BacklogWindow

@@ -27,6 +27,7 @@ from scheduler.ui.history_window import HistoryWindow
 from scheduler.ui.planner import GatePlanner
 from scheduler.ui.popup import EventReminderPopup, SystemPopup
 from scheduler.ui.tray import SchedulerTray
+from scheduler.tts import speak, task_announcement
 from scheduler.watcher import TaskWatcher
 
 log = logging.getLogger("scheduler")
@@ -82,7 +83,9 @@ def run(argv: list[str] | None = None) -> int:
         popup.snoozed.connect(on_popup_snoozed)
         popups.add(popup)
         popup.destroyed.connect(lambda _obj, p=popup: popups.discard(p))
-        if state.sound:
+        if state.tts:
+            speak(task_announcement(task, late=payload["late"]))
+        elif state.sound:
             play_cue()
         popup.show_centered()
 
@@ -122,6 +125,8 @@ def run(argv: list[str] | None = None) -> int:
         calendar.show_centered()
 
     calendar.set_opacity_sink(lambda opacity, s=state: setattr(s, "opacity", opacity))
+    calendar.set_tts_provider(lambda s=state: s.tts)
+    calendar.set_tts_sink(lambda enabled, s=state: setattr(s, "tts", enabled))
 
     # -- past schedules (tray "Past Schedules") ------------------------------- #
     history = HistoryWindow(vault)

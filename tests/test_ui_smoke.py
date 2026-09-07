@@ -268,6 +268,37 @@ def test_settings_slider_writes_through_to_persistence_sink():
         theme.set_opacity(0.75)
 
 
+def test_settings_tts_toggle_honors_initial_and_emits():
+    app = _app()
+    from scheduler.ui.calendar_window import CalendarWindow
+    from scheduler.ui.settings_window import SettingsWindow
+
+    settings = SettingsWindow(tts=True)
+    settings.show()
+    assert settings._tts_check.isChecked() is True
+
+    toggled = []
+    settings.tts_toggled.connect(lambda v: toggled.append(v))
+    settings._tts_check.setChecked(False)
+    assert toggled == [False]
+    settings._tts_check.setChecked(True)
+    assert toggled == [False, True]
+    settings.close()
+
+    persisted = []
+    events = []
+    calendar = CalendarWindow(".")
+    calendar.set_tts_provider(lambda: True)
+    calendar.set_tts_sink(lambda v: persisted.append(v))
+    calendar._open_settings()
+    assert calendar._settings._tts_check.isChecked() is True
+    calendar._settings.tts_toggled.connect(lambda v: events.append(v))
+    calendar._settings._tts_check.setChecked(False)
+    assert persisted == [False]
+    assert events == [False]
+    calendar.close()
+
+
 def test_glow_lives_on_card_not_top_level_window(tmp_path):
     """Regression: the drop shadow must never sit on the layered top-level.
 

@@ -44,6 +44,8 @@ class _CalendarCard(QWidget):
         self._covered: set[date] = set()
         self._settings: "QWidget | None" = None
         self._opacity_saved = None
+        self._tts_provider = None
+        self._tts_saved = None
 
         self.setFixedSize(CALENDAR_WIDTH, CALENDAR_HEIGHT)
         self._build_ui()
@@ -194,9 +196,11 @@ class _CalendarCard(QWidget):
                 self._settings = None
         from scheduler.ui.settings_window import SettingsWindow
 
-        self._settings = SettingsWindow()
+        tts_initial = self._tts_provider() if self._tts_provider is not None else False
+        self._settings = SettingsWindow(tts=tts_initial)
         self._settings.saved.connect(self._settings_saved)
         self._settings.changed.connect(self._settings_changed)
+        self._settings.tts_toggled.connect(self._settings_tts_toggled)
         self._settings.destroyed.connect(self._on_settings_destroyed)
         self._settings.show_centered()
 
@@ -211,12 +215,25 @@ class _CalendarCard(QWidget):
         if on_changed is not None:
             on_changed(opacity)
 
+    def _settings_tts_toggled(self, enabled: bool) -> None:
+        on_toggled = getattr(self, "_tts_saved", None)
+        if on_toggled is not None:
+            on_toggled(enabled)
+
     def _on_settings_destroyed(self) -> None:
         self._settings = None
 
     def set_opacity_sink(self, callback) -> None:
         """Wire the settings dialog's 'saved' and 'changed' value to a persistent store."""
         self._opacity_saved = callback
+
+    def set_tts_provider(self, callback) -> None:
+        """Provide the current TTS preference when the settings dialog opens."""
+        self._tts_provider = callback
+
+    def set_tts_sink(self, callback) -> None:
+        """Persist TTS preference changes made in the settings dialog."""
+        self._tts_saved = callback
 
     def _hide_self(self) -> None:
         self.window().hide()
@@ -273,6 +290,12 @@ class CalendarWindow(GlassShell):
 
     def set_opacity_sink(self, callback) -> None:
         self.card.set_opacity_sink(callback)
+
+    def set_tts_provider(self, callback) -> None:
+        self.card.set_tts_provider(callback)
+
+    def set_tts_sink(self, callback) -> None:
+        self.card.set_tts_sink(callback)
 
     @property
     def _settings(self) -> "QWidget | None":

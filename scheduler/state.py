@@ -15,6 +15,7 @@ DEFAULTS = {
     "penalty_count": 0,
     "fired": [],
     "sound": True,
+    "tts": False,
     "force_focus": False,
     "opacity": 0.75,
 }
@@ -96,6 +97,17 @@ class StateStore:
     def sound(self, value: bool) -> None:
         with self._lock:
             self._data["sound"] = bool(value)
+        self.save()
+
+    @property
+    def tts(self) -> bool:
+        with self._lock:
+            return bool(self._data.get("tts", False))
+
+    @tts.setter
+    def tts(self, value: bool) -> None:
+        with self._lock:
+            self._data["tts"] = bool(value)
         self.save()
 
     @property

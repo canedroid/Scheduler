@@ -1,8 +1,9 @@
-"""Frameless settings dialog: live app-window transparency control.
+"""Frameless settings dialog: live app-window transparency + spoken announcements.
 
 The opacity slider drives `theme.set_opacity` so every open window (calendar,
 planner, backlog) is re-tinted in real time; the value persists through
-`StateStore.opacity` when the dialog is dismissed.
+`StateStore.opacity` when the dialog is dismissed. The TTS checkbox toggles
+spoken fire announcements, persisted through `StateStore.tts` on every change.
 """
 from __future__ import annotations
 
@@ -12,6 +13,7 @@ from pathlib import Path
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QLinearGradient, QPainter, QPen
 from PyQt6.QtWidgets import (
+    QCheckBox,
     QHBoxLayout,
     QLabel,
     QPushButton,
@@ -27,20 +29,22 @@ from scheduler.ui.glass import GlassShell
 log = logging.getLogger(__name__)
 
 SETTINGS_WIDTH = 360
-SETTINGS_HEIGHT = 170
+SETTINGS_HEIGHT = 232
 GLOW_BLUR = 40
 GLOW_ALPHA = 235
 
 
 class _SettingsCard(QWidget):
-    """The glass card holding the live opacity slider."""
+    """The glass card holding the live opacity slider and TTS toggle."""
 
     changed = pyqtSignal(float)   # emitted on every slider move (write-through)
     saved = pyqtSignal(float)     # emitted on dismiss (final persist)
+    tts_toggled = pyqtSignal(bool)  # emitted immediately on toggle (write-through)
 
-    def __init__(self):
+    def __init__(self, tts: bool = False):
         super().__init__()
         self.setFixedSize(SETTINGS_WIDTH, SETTINGS_HEIGHT)
+        self._tts_initial = bool(tts)
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -101,6 +105,26 @@ class _SettingsCard(QWidget):
         root.addLayout(slider_row)
         self._slider = slider
 
+        tts_row = QVBoxLayout()
+        check = QCheckBox("SPOKEN ANNOUNCEMENTS (TTS)", self)
+        check.setChecked(self._tts_initial)
+        check.setCursor(Qt.CursorShape.PointingHandCursor)
+        check.setStyleSheet(
+            f"QCheckBox {{ color: {config.TEXT}; background: transparent; font-size: 12px; }}"
+            f"QCheckBox::indicator {{ width: 15px; height: 15px; border: 1px solid rgba(230, 230, 230, 120);"
+            f" border-radius: 4px; background: rgba(200, 200, 200, 18); }}"
+            f"QCheckBox::indicator:checked {{ background: {config.PURPLE_GLOW};"
+            f" border-color: {config.PURPLE_GLOW}; }}"
+        )
+        check.toggled.connect(self.tts_toggled)
+        tts_row.addWidget(check)
+        tts_hint = QLabel("Say task descriptions aloud when they fire (Windows voice).", self)
+        tts_hint.setFont(theme.body_font(9))
+        tts_hint.setStyleSheet(f"color: {config.TEXT_DIM}; background: transparent;")
+        tts_row.addWidget(tts_hint)
+        root.addLayout(tts_row)
+        self._tts_check = check
+
         hint = QLabel("Applies instantly to the calendar, planner and missed-task windows.", self)
         hint.setWordWrap(True)
         hint.setFont(theme.body_font(9))
@@ -148,13 +172,15 @@ class SettingsWindow(GlassShell):
 
     changed = pyqtSignal(float)   # emitted on every slider move (write-through)
     saved = pyqtSignal(float)     # emitted on dismiss (final persist)
+    tts_toggled = pyqtSignal(bool)
 
-    def __init__(self, vault: Path | None = None, parent=None):
+    def __init__(self, vault: Path | None = None, tts: bool = False, parent=None):
         del vault
         super().__init__(SETTINGS_WIDTH, SETTINGS_HEIGHT, GLOW_BLUR, GLOW_ALPHA)
-        card = _SettingsCard()
+        card = _SettingsCard(tts=tts)
         card.changed.connect(self.changed)
         card.saved.connect(self.saved)
+        card.tts_toggled.connect(self.tts_toggled)
         self.mount(card, GLOW_BLUR, GLOW_ALPHA)
 
     # -- facade kept so callers/tests talk to the window as before ----------- #
@@ -164,6 +190,10 @@ class SettingsWindow(GlassShell):
     @property
     def _slider(self) -> QSlider:
         return self.card._slider
+
+    @property
+    def _tts_check(self) -> QCheckBox:
+        return self.card._tts_check
 
     def closeEvent(self, event) -> None:  # noqa: N802 (Qt naming) — hide, never destroy
         event.ignore()

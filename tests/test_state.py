@@ -32,3 +32,16 @@ def test_was_fired_aliases_has_fired(tmp_path):
     store.mark_fired("abc")
     assert store.was_fired("abc")
     assert store.has_fired("abc")
+
+
+def test_tts_defaults_off(tmp_path):
+    store = StateStore(tmp_path / "state.json")
+    assert store.tts is False
+
+
+def test_tts_round_trip(tmp_path):
+    store = StateStore(tmp_path / "state.json")
+    store.tts = True
+    assert store.tts is True
+    reloaded = StateStore(tmp_path / "state.json")
+    assert reloaded.tts is True

@@ -299,6 +299,89 @@ def test_settings_tts_toggle_honors_initial_and_emits():
     calendar.close()
 
 
+def test_drag_target_classification():
+    app = _app()
+    from PyQt6.QtWidgets import (
+        QCheckBox,
+        QComboBox,
+        QLabel,
+        QListWidget,
+        QPushButton,
+        QSlider,
+        QTimeEdit,
+    )
+
+    from scheduler.ui.glass import _is_drag_target
+
+    assert _is_drag_target(QLabel("drag me")) is True
+    assert _is_drag_target(None) is False
+    assert _is_drag_target(QPushButton("x")) is False
+    assert _is_drag_target(QCheckBox()) is False
+    assert _is_drag_target(QSlider()) is False
+    assert _is_drag_target(QTimeEdit()) is False
+    assert _is_drag_target(QListWidget()) is False
+    assert _is_drag_target(QComboBox()) is False
+
+
+def test_drag_press_over_label_consumed_buttons_still_clickable(monkeypatch):
+    app = _app()
+    from PyQt6.QtCore import QEvent, QPointF, Qt
+    from PyQt6.QtGui import QMouseEvent
+    from PyQt6.QtTest import QTest
+    from PyQt6.QtWidgets import QApplication, QLabel, QPushButton
+
+    from scheduler.ui.settings_window import SettingsWindow
+
+    settings = SettingsWindow()
+    settings.show()
+    moved = []
+    monkeypatch.setattr(SettingsWindow, "_begin_system_move", lambda self: moved.append(1))
+    label = next(c for c in settings.card.findChildren(QLabel) if c.text() == "SETTINGS")
+    origin = label.mapTo(settings.card, label.rect().center())
+
+    press = QMouseEvent(
+        QEvent.Type.MouseButtonPress,
+        QPointF(origin),
+        Qt.MouseButton.LeftButton,
+        Qt.MouseButton.LeftButton,
+        Qt.KeyboardModifier.NoModifier,
+    )
+    assert QApplication.sendEvent(settings.card, press) is True  # consumed by drag
+    assert press.isAccepted()
+    assert moved == [1]  # native system move was initiated
+
+    close_btn = [b for b in settings.card.findChildren(QPushButton) if b.text() == "✕"][0]
+    QTest.mouseClick(close_btn, Qt.MouseButton.LeftButton)
+    assert not settings.isVisible()  # button still fired: dismissed, not dragged
+    settings.close()
+
+
+def test_popup_click_anywhere_still_dismisses_not_drag():
+    app = _app()
+    from PyQt6.QtCore import QEvent, QPointF, Qt
+    from PyQt6.QtGui import QMouseEvent
+    from PyQt6.QtWidgets import QApplication, QLabel
+
+    from scheduler.ui.popup import SystemPopup
+
+    popup = SystemPopup(_task(), late=True)
+    popup.show_centered()
+    assert popup.isVisible()
+    label = next(c for c in popup.card.findChildren(QLabel) if c.text())
+    origin = label.mapTo(popup.card, label.rect().center())
+
+    press = QMouseEvent(
+        QEvent.Type.MouseButtonPress,
+        QPointF(origin),
+        Qt.MouseButton.LeftButton,
+        Qt.MouseButton.LeftButton,
+        Qt.KeyboardModifier.NoModifier,
+    )
+    QApplication.sendEvent(popup.card, press)
+    assert not popup.isVisible()  # click-anywhere-to-dismiss preserved (no drag)
+    popup.close()
+
+
 def test_glow_lives_on_card_not_top_level_window(tmp_path):
     """Regression: the drop shadow must never sit on the layered top-level.
 

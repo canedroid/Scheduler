@@ -246,7 +246,7 @@ class SystemPopup(GlassShell):
         card.completed.connect(self.completed)
         card.snoozed.connect(self.snoozed)
         card.dismissed.connect(self.dismissed)
-        self.mount(card, GLOW_BLUR, GLOW_ALPHA)
+        self.mount(card, GLOW_BLUR, GLOW_ALPHA, draggable=False)
 
     # -- facade kept so callers/tests talk to the window as before ----------- #
     def _complete(self) -> None:
@@ -419,7 +419,7 @@ class EventReminderPopup(GlassShell):
         card = _EventReminderCard(event, now=now)
         card.dismissed.connect(self.dismissed)
         card.openPlanner.connect(self.openPlanner)
-        self.mount(card, GLOW_BLUR, GLOW_ALPHA)
+        self.mount(card, GLOW_BLUR, GLOW_ALPHA, draggable=False)
 
     # -- facade kept so callers/tests talk to the window as before ----------- #
     def dismiss(self) -> None:

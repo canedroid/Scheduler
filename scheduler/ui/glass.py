@@ -10,12 +10,43 @@ as a child "card"; the card carries the drop shadow, so the halo renders
 """
 from __future__ import annotations
 
-from PyQt6.QtCore import QPoint, Qt
+from PyQt6.QtCore import QEvent, QPoint, Qt
 from PyQt6.QtGui import QGuiApplication
-from PyQt6.QtWidgets import QVBoxLayout, QWidget
+from PyQt6.QtWidgets import (
+    QAbstractButton,
+    QAbstractItemView,
+    QAbstractSlider,
+    QAbstractSpinBox,
+    QComboBox,
+    QLineEdit,
+    QPlainTextEdit,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
+)
 
 from scheduler import config
 from scheduler.ui import theme
+
+_DRAG_PROPAGATING = (
+    QAbstractButton,      # push buttons, checkboxes, tool buttons
+    QAbstractSlider,      # sliders
+    QAbstractSpinBox,     # time/date/spin edits
+    QComboBox,
+    QAbstractItemView,    # list/table/tree views
+    QLineEdit,
+    QTextEdit,
+    QPlainTextEdit,
+)
+
+
+def _is_drag_target(widget: QWidget | None) -> bool:
+    """True when a press on ``widget`` should begin a window drag.
+
+    Interactive controls propagate the event to themselves; everything else
+    (labels, headers, blank card space) is a drag handle for the frameless shell.
+    """
+    return widget is not None and not isinstance(widget, _DRAG_PROPAGATING)
 
 
 def halo_for(blur: int) -> int:
@@ -45,11 +76,35 @@ class GlassShell(QWidget):
         self._layout.setContentsMargins(self._margin, self._margin, self._margin, self._margin)
         self._mounted: QWidget | None = None
 
-    def mount(self, card: QWidget, blur: int, alpha: int) -> None:
-        """Add ``card`` centered and apply the glow to the card (never the shell)."""
+    def mount(self, card: QWidget, blur: int, alpha: int, draggable: bool = True) -> None:
+        """Add ``card`` centered and apply the glow to the card (never the shell).
+
+        ``draggable`` turns the card's non-interactive space into a native drag
+        handle. Popups opt out so their click-anywhere-to-dismiss still works.
+        """
         card.setGraphicsEffect(theme.glow(card, config.PURPLE, blur=blur, alpha=alpha))
         self._layout.addWidget(card, 0, Qt.AlignmentFlag.AlignCenter)
         self._mounted = card
+        if draggable:
+            card.installEventFilter(self)
+
+    def eventFilter(self, watched, event) -> bool:  # noqa: N802 (Qt naming)
+        """Start a native OS drag when the user presses non-interactive card space."""
+        if (
+            event.type() == QEvent.Type.MouseButtonPress
+            and event.button() == Qt.MouseButton.LeftButton
+        ):
+            hit = self._mounted.childAt(event.position().toPoint())
+            if _is_drag_target(hit):
+                self._begin_system_move()
+                event.accept()
+                return True
+        return super().eventFilter(watched, event)
+
+    def _begin_system_move(self) -> None:
+        handle = self.window().windowHandle()
+        if handle is not None:
+            handle.startSystemMove()
 
     @property
     def card(self) -> QWidget:

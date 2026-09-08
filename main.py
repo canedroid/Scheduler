@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+from datetime import datetime
 from pathlib import Path
 
 from PyQt6.QtWidgets import QApplication
@@ -45,6 +46,17 @@ def play_cue() -> None:
         log.debug("Audio cue failed to play (silent mode).")
 
 
+def announce_live_fire(late: bool, scheduled: datetime, app_started: datetime) -> bool:
+    """TTS/chime only when the app was already open as the task's time hit.
+
+    A task caught on-time while the watcher was running fires with ``late=False``
+    and its scheduled time is at/after launch. A task whose time passed while the
+    app was closed (or the PC slept) fires later as a LATE catch-up — the popup
+    still appears, but nothing is spoken or chimed: the user already sees it.
+    """
+    return not late and scheduled >= app_started
+
+
 def _ensure_vault(vault: Path) -> None:
     vault.mkdir(parents=True, exist_ok=True)
 
@@ -60,6 +72,7 @@ def run(argv: list[str] | None = None) -> int:
     _ensure_vault(vault)
     state = StateStore(config.STATE_FILE)
     config.WINDOW_OPACITY = state.opacity  # restore the user's transparency setting
+    app_started = datetime.now()  # TTS/chime only for fires at/after this instant
 
     popups: set[SystemPopup] = set()
     active_backlogs: set[BacklogWindow] = set()
@@ -83,9 +96,10 @@ def run(argv: list[str] | None = None) -> int:
         popup.snoozed.connect(on_popup_snoozed)
         popups.add(popup)
         popup.destroyed.connect(lambda _obj, p=popup: popups.discard(p))
-        if state.tts:
+        live = announce_live_fire(payload["late"], task.scheduled, app_started)
+        if live and state.tts:
             speak(task_announcement(task, late=payload["late"]))
-        elif state.sound:
+        elif live and state.sound:
             play_cue()
         popup.show_centered()
 
